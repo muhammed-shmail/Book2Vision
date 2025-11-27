@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book2Vision | Transform Your Reading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar glass">
+        <div class="logo">Book2Vision(Alpha)</div>
+        <div class="hamburger" onclick="toggleMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+        <div class="nav-links">
+            <a href="#" class="active">Home</a>
+            <a href="#">Library</a>
+            <a href="#">Settings</a>
+        </div>
+    </nav>
+
+    <!-- Hero / Upload Section -->
+    <section id="hero" class="container">
+        <div class="hero-content">
+            <h1>Experience Books <br> Like Never Before</h1>
+            <p>Turn any PDF into an immersive multimedia journey with AI-powered narration and visualization.</p>
+
+            <div class="upload-zone glass" id="drop-zone">
+                <div class="upload-icon">📂</div>
+                <h3>Drag & Drop your book here</h3>
+                <p>Supports PDF, EPUB, TXT</p>
+                <input type="file" id="file-input" hidden>
+                <button class="btn-primary" onclick="document.getElementById('file-input').click()">Browse
+                    Files</button>
+            </div>
+            <div id="upload-status" class="hidden">
+                <!-- From Uiverse.io by anand_4957 -->
+                <div class="book">
+                    <div class="book__pg-shadow"></div>
+                    <div class="book__pg"></div>
+                    <div class="book__pg book__pg--2"></div>
+                    <div class="book__pg book__pg--3"></div>
+                    <div class="book__pg book__pg--4"></div>
+                    <div class="book__pg book__pg--5"></div>
+                </div>
+                <p style="margin-top: 2rem;">Analyzing your book...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard (Hidden initially) -->
+    <section id="dashboard" class="container hidden">
+
+        <!-- Top Bar: Book Info & Settings -->
+        <div class="dashboard-header glass">
+            <div class="book-info">
+                <h2 id="book-title">Book Title</h2>
+                <p id="book-author">Author Name</p>
+            </div>
+            <div class="settings-group">
+                <div class="setting-item">
+                    <label>Voice ID</label>
+                    <input type="text" id="voice-id-input" class="glass-input" value="21m00Tcm4TlvDq8ikWAM"
+                        placeholder="Enter Voice ID" style="width: 150px;">
+                </div>
+
+                <div class="setting-item">
+                    <label>Stability: <span id="stability-val">0.5</span></label>
+                    <input type="range" id="stability-range" min="0" max="1" step="0.05" value="0.5">
+                </div>
+
+                <div class="setting-item">
+                    <label>Similarity: <span id="similarity-val">0.75</span></label>
+                    <input type="range" id="similarity-range" min="0" max="1" step="0.05" value="0.75">
+                </div>
+
+                <div class="setting-item">
+                    <label>Style: <span id="style-val">0.0</span></label>
+                    <input type="range" id="style-range" min="0" max="1" step="0.05" value="0.0">
+                </div>
+
+                <div class="setting-item">
+                    <label>Boost</label>
+                    <input type="checkbox" id="speaker-boost-check" checked>
+                </div>
+
+                <div class="setting-item">
+                    <label>Art Style</label>
+                    <select id="style-select" class="glass-input">
+                        <option value="storybook">Storybook</option>
+                        <option value="cinematic">Cinematic</option>
+                        <option value="anime">Anime</option>
+                        <option value="watercolor">Watercolor</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Left: Entities -->
+            <div class="panel-left glass">
+                <h3>Characters</h3>
+                <div id="entities-list" class="entities-grid">
+                    <!-- Entities injected here -->
+                </div>
+            </div>
+
+            <!-- Center: Audio Player & Q&A -->
+            <div class="panel-center">
+                <!-- Audio Player -->
+                <div class="audio-player-ui glass">
+                    <div class="player-header">
+                        <h3>Audiobook Player</h3>
+                        <button id="btn-audio" class="btn-sm">Generate Audio</button>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="audio-progress"></div>
+                    </div>
+                    <div class="player-controls">
+                        <button class="btn-control" onclick="skip(-15)">↺ 15s</button>
+                        <button class="btn-play" id="btn-play-pause" onclick="toggleAudio()">▶</button>
+                        <button class="btn-control" onclick="skip(15)">15s ↻</button>
+                    </div>
+                    <!-- Hidden audio element for logic -->
+                    <audio id="audio-player" hidden></audio>
+                </div>
+
+                <!-- Q&A Section -->
+                <div class="qa-section glass">
+                    <h3>Ask the Book</h3>
+                    <div class="qa-input-wrapper">
+                        <input type="text" placeholder="Ask a question about the story..." class="glass-input qa-input">
+                        <button class="btn-send">→</button>
+                    </div>
+                    <div class="qa-suggestions">
+                        <span class="chip">Why was Rex scared?</span>
+                        <span class="chip">What happened after the meteor?</span>
+                    </div>
+                    <div class="qa-answer hidden" id="qa-answer">
+                        <strong>Answer:</strong> <span id="qa-text">Rex was brave because...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Generated Image -->
+            <div class="panel-image glass">
+                <div class="player-header">
+                    <h3>Generated Image</h3>
+                    <button id="btn-visuals" class="btn-sm">Generate</button>
+                </div>
+                <div class="image-display" id="image-display">
+                    <div class="placeholder-text">Generating visuals...</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
