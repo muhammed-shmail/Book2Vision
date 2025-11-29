@@ -36,3 +36,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Sensitive Scripts
+update_env.py
+debug_env.py
