@@ -42,8 +42,10 @@ async def health_check():
     return {"status": "ok", "service": "book2vision"}
 
 # Directories
-UPLOAD_DIR = "temp_upload"
-OUTPUT_DIR = "Book2Vision_Output"
+# Directories
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOAD_DIR = os.path.join(BASE_DIR, "temp_upload")
+OUTPUT_DIR = os.path.join(BASE_DIR, "Book2Vision_Output")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -234,7 +236,9 @@ async def suggested_questions_endpoint():
 app.mount("/api/assets", StaticFiles(directory=UPLOAD_DIR), name="assets")
 
 # Serve Frontend
-app.mount("/", StaticFiles(directory="web", html=True), name="static")
+# Serve Frontend
+WEB_DIR = os.path.join(BASE_DIR, "web")
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="static")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
