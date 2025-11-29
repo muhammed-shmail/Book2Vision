@@ -20,7 +20,6 @@ Book2Vision_Output/
 test_output/
 *.mp3
 *.jpg
-*.png
 *.pdf
 
 # IDE
