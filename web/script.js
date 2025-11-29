@@ -27,64 +27,52 @@ let currentStoryText = "";
 let isPlaying = false;
 
 // Event Listeners
-if (dropZone) {
-    dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '#00d4ff';
-    });
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-    });
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        if (e.dataTransfer.files.length) {
-            handleUpload(e.dataTransfer.files[0]);
-        }
-    });
-}
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = '#00d4ff';
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+    if (e.dataTransfer.files.length) {
+        handleUpload(e.dataTransfer.files[0]);
+    }
+});
 
-if (fileInput) {
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            handleUpload(e.target.files[0]);
-        }
-    });
-}
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+        handleUpload(e.target.files[0]);
+    }
+});
 
 // Audio Player Events
-if (audioPlayer) {
-    audioPlayer.addEventListener('timeupdate', updateProgress);
-    audioPlayer.addEventListener('ended', () => {
-        isPlaying = false;
-        if (btnPlayPause) btnPlayPause.textContent = "▶";
-    });
-}
+audioPlayer.addEventListener('timeupdate', updateProgress);
+audioPlayer.addEventListener('ended', () => {
+    isPlaying = false;
+    btnPlayPause.textContent = "▶";
+});
 
 // Q&A Events
 function setupQA() {
     document.querySelectorAll('.chip').forEach(chip => {
         chip.addEventListener('click', () => {
             const question = chip.textContent;
-            const input = document.querySelector('.qa-input');
-            if (input) {
-                input.value = question;
-                askQuestion(question);
-            }
+            document.querySelector('.qa-input').value = question;
+            askQuestion(question);
         });
     });
 }
 
-const btnSend = document.querySelector('.btn-send');
-if (btnSend) {
-    btnSend.addEventListener('click', () => {
-        const question = document.querySelector('.qa-input').value;
-        if (question) {
-            askQuestion(question);
-        }
-    });
-}
+document.querySelector('.btn-send').addEventListener('click', () => {
+    const question = document.querySelector('.qa-input').value;
+    if (question) {
+        askQuestion(question);
+    }
+});
 
 async function askQuestion(question) {
     const answerBox = document.getElementById('qa-answer');
@@ -249,75 +237,17 @@ async function fetchEntityImage(name, imgId) {
     }
 }
 
-// Settings Management
-const DEFAULT_SETTINGS = {
-    voiceId: "21m00Tcm4TlvDq8ikWAM",
-    stability: 0.5,
-    similarity: 0.75,
-    style: 0.0,
-    speakerBoost: true,
-    artStyle: "storybook"
-};
-
-function getSettings() {
-    const saved = localStorage.getItem('b2v_settings');
-    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
-}
-
-function saveSettings(settings) {
-    localStorage.setItem('b2v_settings', JSON.stringify(settings));
-}
-
-function loadSettingsUI() {
-    const settings = getSettings();
-
-    const voiceIdInput = document.getElementById('voice-id');
-    if (voiceIdInput) voiceIdInput.value = settings.voiceId;
-
-    const stabilityInput = document.getElementById('stability');
-    if (stabilityInput) {
-        stabilityInput.value = settings.stability;
-        document.getElementById('stability-val').textContent = settings.stability;
-    }
-
-    const similarityInput = document.getElementById('similarity');
-    if (similarityInput) {
-        similarityInput.value = settings.similarity;
-        document.getElementById('similarity-val').textContent = settings.similarity;
-    }
-
-    const styleInput = document.getElementById('style');
-    if (styleInput) {
-        styleInput.value = settings.style;
-        document.getElementById('style-val').textContent = settings.style;
-    }
-
-    const speakerBoostInput = document.getElementById('speaker-boost');
-    if (speakerBoostInput) speakerBoostInput.checked = settings.speakerBoost;
-
-    const artStyleInput = document.getElementById('art-style');
-    if (artStyleInput) artStyleInput.value = settings.artStyle;
-}
-
-function saveSettingsUI() {
-    const settings = {
-        voiceId: document.getElementById('voice-id').value,
-        stability: parseFloat(document.getElementById('stability').value),
-        similarity: parseFloat(document.getElementById('similarity').value),
-        style: parseFloat(document.getElementById('style').value),
-        speakerBoost: document.getElementById('speaker-boost').checked,
-        artStyle: document.getElementById('art-style').value
-    };
-    saveSettings(settings);
-}
-
 async function generateAudio() {
     const btn = btnAudio;
     const originalText = btn.textContent;
     btn.textContent = "Generating...";
     btn.disabled = true;
 
-    const settings = getSettings();
+    const voiceId = document.getElementById('voice-id-input').value;
+    const stability = parseFloat(document.getElementById('stability-range').value);
+    const similarity = parseFloat(document.getElementById('similarity-range').value);
+    const style = parseFloat(document.getElementById('style-range').value);
+    const speakerBoost = document.getElementById('speaker-boost-check').checked;
 
     try {
         const res = await fetch(`${API_BASE}/generate/audio`, {
@@ -325,11 +255,11 @@ async function generateAudio() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: currentStoryText,
-                voice_id: settings.voiceId,
-                stability: settings.stability,
-                similarity_boost: settings.similarity,
-                style: settings.style,
-                use_speaker_boost: settings.speakerBoost
+                voice_id: voiceId,
+                stability: stability,
+                similarity_boost: similarity,
+                style: style,
+                use_speaker_boost: speakerBoost
             })
         });
 
@@ -354,14 +284,14 @@ async function generateVisuals() {
     btn.textContent = "Painting...";
     btn.disabled = true;
 
-    const settings = getSettings();
+    const style = document.getElementById('style-select').value;
 
     try {
         const res = await fetch(`${API_BASE}/generate/visuals`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                style: settings.artStyle,
+                style: style,
                 seed: 42
             })
         });
@@ -372,8 +302,7 @@ async function generateVisuals() {
         injectImages(data.images);
 
     } catch (e) {
-        console.error("Visuals generation error:", e);
-        alert("Visuals generation failed: " + e.message);
+        alert(e.message);
     } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -437,30 +366,6 @@ function formatTime(seconds) {
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
 }
 
-// Bind buttons if they exist (dashboard only)
-if (btnAudio) btnAudio.addEventListener('click', generateAudio);
-if (btnVisuals) btnVisuals.addEventListener('click', generateVisuals);
-
-// Toast Notification
-function showToast(message) {
-    const toast = document.createElement('div');
-    toast.className = 'toast-notification';
-    toast.innerHTML = `<span>✅</span> ${message}`;
-
-    document.body.appendChild(toast);
-
-    // Trigger animation
-    setTimeout(() => toast.classList.add('show'), 10);
-
-    // Remove after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-    }, 3000);
-}
-
-// Mobile Menu
-function toggleMenu() {
-    const navLinks = document.querySelector('.nav-links');
-    navLinks.classList.toggle('active');
-}
+// Bind buttons
+btnAudio.addEventListener('click', generateAudio);
+btnVisuals.addEventListener('click', generateVisuals);
