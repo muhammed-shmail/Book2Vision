@@ -18,7 +18,13 @@ def generate_entity_image(entity_name, entity_role, output_dir, seed=None):
     if seed is None:
         seed = random.randint(0, 10000)
         
-    prompt = f"Close-up portrait of {entity_name} ({entity_role}), storybook illustration style, cute, detailed, soft lighting, white background."
+    prompt = (
+        f"Close-up portrait of {entity_name} as {entity_role}, "
+        f"centered character, facing the viewer, storybook illustration style, "
+        f"cute, expressive, highly detailed, soft diffused lighting, "
+        f"clean plain white background, no text, no logo, no watermark, "
+        f"framed to work well as a circular avatar."
+    )
     encoded_prompt = urllib.parse.quote(prompt)
     
     image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=flux&seed={seed}&width=512&height=512&nologo=true"
@@ -54,9 +60,21 @@ def generate_images(semantic_map, output_dir, style="storybook", seed=None, titl
         print(f"Generating Title Page for: {title}")
         try:
             if style == "storybook":
-                prompt = f"Book cover for '{title}'. Beautiful title text prominently displayed. Whimsical, colorful, decorative border, children's book style, soft lighting, magical atmosphere."
+                prompt = (
+                    f"Front book cover for a children's story titled '{title}', "
+                    f"whimsical storybook illustration style, bright and colorful, "
+                    f"magical and inviting atmosphere, soft lighting, decorative border, "
+                    f"ample clean space for bold readable title text in the center, "
+                    f"no logo, no watermark, 16:9 aspect ratio."
+                )
             else:
-                prompt = f"Book cover for '{title}'. Bold title text prominently displayed. Cinematic, dramatic lighting, high contrast, movie poster style, 8k resolution."
+                prompt = (
+                    f"Cinematic book or movie poster for a story titled '{title}', "
+                    f"dramatic composition, strong focal point, high contrast, "
+                    f"atmospheric lighting, realistic or semi-realistic style, "
+                    f"title area clearly visible and readable, ultra detailed, "
+                    f"epic 8k look, no logo, no watermark, 16:9 aspect ratio."
+                )
             
             encoded_prompt = urllib.parse.quote(prompt)
             image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=flux&seed={seed}&width=1920&height=1080&nologo=true"
@@ -90,7 +108,12 @@ def generate_images(semantic_map, output_dir, style="storybook", seed=None, titl
             name = str(entity)
             role = "Character"
         
-        prompt = f"Illustration of {name} ({role}). {style} style, high quality, detailed, vibrant colors, fantasy art."
+        prompt = (
+            f"Full or mid-shot illustration of {name} as {role}, "
+            f"{style} style, highly detailed, vibrant colors, "
+            f"clear character design, expressive pose, visually appealing background, "
+            f"cinematic 16:9 composition, no text, no logo, no watermark."
+        )
         encoded_prompt = urllib.parse.quote(prompt)
         image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?model=flux&seed={seed+i+1}&width=1920&height=1080&nologo=true"
         

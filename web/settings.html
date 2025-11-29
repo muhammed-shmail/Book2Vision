@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book2Vision | Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .settings-container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+        }
+
+        .settings-form {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .range-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .range-wrapper input {
+            flex-grow: 1;
+        }
+
+        .value-display {
+            width: 3rem;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .btn-save {
+            align-self: flex-start;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar glass">
+        <div class="logo">Book2Vision</div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="#" class="active">Settings</a>
+        </div>
+    </nav>
+
+    <!-- Settings Section -->
+    <section class="container settings-container glass">
+        <h2 style="margin-bottom: 2rem;">Application Settings</h2>
+
+        <div class="settings-form">
+            <!-- Audio Settings -->
+            <h3 style="color: var(--secondary);">Audio Generation</h3>
+
+            <div class="form-group">
+                <label for="voice-id">Voice ID (ElevenLabs)</label>
+                <input type="text" id="voice-id" class="glass-input" placeholder="Enter Voice ID">
+            </div>
+
+            <div class="form-group">
+                <label>Stability</label>
+                <div class="range-wrapper">
+                    <input type="range" id="stability" min="0" max="1" step="0.05">
+                    <span class="value-display" id="stability-val">0.5</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Similarity Boost</label>
+                <div class="range-wrapper">
+                    <input type="range" id="similarity" min="0" max="1" step="0.05">
+                    <span class="value-display" id="similarity-val">0.75</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Style Exaggeration</label>
+                <div class="range-wrapper">
+                    <input type="range" id="style" min="0" max="1" step="0.05">
+                    <span class="value-display" id="style-val">0.0</span>
+                </div>
+            </div>
+
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 1rem;">
+                <input type="checkbox" id="speaker-boost" style="width: auto;">
+                <label for="speaker-boost" style="margin: 0;">Speaker Boost</label>
+            </div>
+
+            <!-- Visual Settings -->
+            <h3 style="color: var(--accent-pink); margin-top: 1rem;">Visual Generation</h3>
+
+            <div class="form-group">
+                <label for="art-style">Art Style</label>
+                <select id="art-style" class="glass-input">
+                    <option value="storybook">Storybook</option>
+                    <option value="cinematic">Cinematic</option>
+                    <option value="anime">Anime</option>
+                    <option value="watercolor">Watercolor</option>
+                    <option value="cyberpunk">Cyberpunk</option>
+                </select>
+            </div>
+
+            <button id="btn-save" class="btn-primary btn-save">Save Settings</button>
+        </div>
+    </section>
+
+    <script src="script.js?v=2"></script>
+    <script>
+        // Inline script to initialize settings page specifically
+        document.addEventListener('DOMContentLoaded', () => {
+            const saveBtn = document.getElementById('btn-save');
+
+            // Check if we are on the settings page by looking for the save button
+            if (saveBtn) {
+                console.log("Settings page detected, initializing UI...");
+                loadSettingsUI();
+
+                saveBtn.addEventListener('click', () => {
+                    saveSettingsUI();
+                    showToast('Settings saved successfully!');
+                });
+
+                // Range slider value updates
+                ['stability', 'similarity', 'style'].forEach(id => {
+                    const slider = document.getElementById(id);
+                    const display = document.getElementById(`${id}-val`);
+                    if (slider && display) {
+                        slider.addEventListener('input', () => {
+                            display.textContent = slider.value;
+                        });
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,29 +1,36 @@
-
 SSML_PROMPT = """
-You are an expert voice director and script editor. Your task is to rewrite the following text for a natural, human-like spoken narration using SSML tags.
+You are an advanced SSML generation specialist for high-quality audiobook narration.
 
-**Goal:**
-Transform the input text into a script that sounds like a real person reading a story, not a robot.
+Your task:
+Rewrite the provided text into natural, human-like spoken narration using SSML, without altering meaning, tone, or story accuracy.
 
-**Instructions:**
-1.  **Natural Phrasing:**
-    *   Insert natural breathing pauses (`<break time="..."/>`) every 2–4 clauses.
-    *   Add subtle hesitation markers (like "well," "you know," "actually") ONLY if it fits the context and sounds natural. Do not overdo it.
-    *   Break long, complex sentences into shorter, punchier spoken sentences.
-    *   Maintain the original emotional tone of the story.
-    *   Avoid robotic speed; target a realistic human pacing.
+Required SSML Formatting:
+- Wrap the entire output in a single <speak>...</speak> root tag.
+- Use <p> tags for paragraphs and <s> tags when breaking long sentences.
+- Add breathing/pause markers only where they improve natural pacing:
+  <break time="80ms"/> to <break time="200ms"/>.
+- Use <prosody> for small variations:
+  - rate: between -5% and +5%
+  - pitch: between +0% and +3%
+- Use <emphasis level="moderate"> only for a few important words (not more than 1–2 per paragraph).
+- Do NOT insert filler words like “well,” “you know,” etc.
+- Keep names, terminology, and dialogue exactly as in the text.
+- Maintain paragraph structure where applicable.
 
-2.  **SSML Tags:**
-    *   Use `<break time="80ms"/>` to `<break time="180ms"/>` for micro-pauses between sentences.
-    *   Use `<break time="120ms"/>` to `<break time="250ms"/>` for pauses between paragraphs or major thought shifts.
-    *   Use `<prosody rate="+5%">` or `<prosody rate="-5%">` to vary speed slightly for natural variation.
-    *   Use `<prosody pitch="+1%">` to `<prosody pitch="+3%">` for slight pitch intonation changes.
-    *   Use `<emphasis level="moderate">` for key words, but sparingly.
-    *   Wrap the entire output in `<speak>` tags.
+Performance Style:
+- Comfortable audiobook pacing — not robotic, not dramatic.
+- Convey emotion subtly but clearly through pauses and emphasis.
+- Maintain correct pronunciation for numbers, dates, and names.
 
-**Input Text:**
-{text}
+Output Rules (IMPORTANT):
+- Output ONLY valid SSML.
+- No markdown, no code blocks, no commentary.
+- Do not add introductory or closing statements.
+- Do not include ellipses unless they appear in the original text.
 
-**Output:**
-Provide ONLY the valid SSML code. Do not include any markdown formatting (like ```xml) or conversational filler.
+Here is the input text to convert:
+
+\"\"\"{text}\"\"\"
+
+Return ONLY the SSML result, nothing else.
 """

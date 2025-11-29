@@ -77,14 +77,47 @@ def extract_text_with_gemini(file_path):
         
         # 1. Try Structured JSON Extraction
         prompt_json = """
-        Analyze this document image. Perform Layout Analysis to identify the main content.
-        1. Extract the **Title** of the story/book.
-        2. Extract the **Author** name.
-        3. Extract the **Story Body** (the main narrative text).
-        4. **Exclude** page numbers, headers, footers, copyright info, table of contents, and illustration captions.
-        5. Return the result as a valid JSON object with keys: "title", "author", "body".
+        You are a document understanding system performing layout-aware extraction
+        on a scanned or digital book/story.
+
+        Carefully analyze the pages and:
+
+        1. Identify the **main title** of the story or book.
+           - This is usually the largest, most prominent text near the beginning.
+           - Do not use publisher names or series labels as the title.
+
+        2. Identify the **author name** if it is clearly present.
+           - If the author is not clearly indicated, return an empty string for author.
+
+        3. Extract the **main narrative body text**:
+           - The continuous story content.
+           - Preserve reading order from top to bottom, left to right.
+           - Preserve paragraphs and line breaks where they help readability.
+           - Exclude:
+             * page numbers
+             * running headers and footers
+             * table of contents
+             * copyright pages
+             * publisher info
+             * chapter list pages without story content
+             * illustration labels/captions unless they are clearly part of the story.
+
+        Output Requirements (IMPORTANT):
+        - Return a single, valid JSON object.
+        - No markdown, no code fences, no comments.
+        - Use exactly these keys:
+          * "title"  : string
+          * "author" : string
+          * "body"   : string (the full readable story text)
+
+        Example shape (do NOT include this as text, just follow the structure):
+        {
+          "title": "Example Title",
+          "author": "Example Author",
+          "body": "Full story text goes here..."
+        }
         """
-        
+
         # Helper for robust generation with retries
         def generate_with_retry(model, inputs, config=None, retries=3):
             from google.api_core import exceptions
@@ -127,8 +160,20 @@ def extract_text_with_gemini(file_path):
 
         # 2. Fallback: Simple Text Extraction (Non-JSON)
         print("Structured extraction failed. Falling back to raw text extraction...")
-        prompt_text = "Extract all the text from this document. Ignore page numbers and headers if possible."
-        
+        prompt_text = """
+        Extract all readable text from this document in correct reading order.
+
+        Guidelines:
+        - Include only meaningful content: narrative text, chapter titles, headings that belong to the story.
+        - Try to ignore:
+          * page numbers
+          * running headers and footers
+          * watermarks
+          * repeated navigation elements (e.g., "Chapter 1" repeated at top of each page).
+        - Preserve basic paragraph breaks where they help readability.
+        - Do not add commentary or explanation; return only the extracted text.
+        """
+
         try:
             # Reuse model or get new one
             model = get_gemini_model("vision", api_key=api_key)

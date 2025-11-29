@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book2Vision | Welcome</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Landing specific overrides */
+        .landing-hero {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 0 2rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            text-align: left;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .cta-group {
+            margin-top: 3rem;
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .landing-hero {
+                height: auto;
+                min-height: 100vh;
+                padding: 6rem 1.5rem 2rem;
+            }
+
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-content p {
+                font-size: 1rem;
+            }
+
+            .cta-group {
+                flex-direction: column;
+                gap: 1rem;
+                width: 100%;
+                max-width: 300px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .btn-primary {
+                width: 100%;
+                text-align: center;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+                margin-top: 3rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar glass">
+        <div class="logo">Book2Vision</div>
+        <div class="nav-links">
+            <a href="#" class="active">Home</a>
+            <a href="#features">Features</a>
+            <a href="index.html">Launch App</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="landing-hero container">
+        <div class="hero-content">
+            <h1>Reimagine Reading <br> with AI Magic</h1>
+            <p>Transform static text into immersive audio-visual experiences. Listen to your books and watch them come
+                to life.</p>
+
+            <div class="cta-group">
+                <a href="index.html" class="btn-primary" style="text-decoration: none; display: inline-block;">Launch
+                    App</a>
+                <a href="#features" class="btn-primary"
+                    style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); text-decoration: none; display: inline-block;">Learn
+                    More</a>
+            </div>
+        </div>
+
+        <div id="features" class="features-grid">
+            <div class="feature-card glass">
+                <span class="feature-icon">🎧</span>
+                <h3>AI Narration</h3>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">High-quality, emotive voice synthesis that
+                    brings characters to life with distinct personalities.</p>
+            </div>
+
+            <div class="feature-card glass">
+                <span class="feature-icon">🎨</span>
+                <h3>Visual Imagination</h3>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">Dynamic scene generation and character
+                    visualization that evolves as you read.</p>
+            </div>
+
+            <div class="feature-card glass">
+                <span class="feature-icon">🧠</span>
+                <h3>Interactive Q&A</h3>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">Chat with your book. Ask questions about the
+                    plot, characters, or lore and get instant answers.</p>
+            </div>
+        </div>
+    </section>
+
+</body>
+
+</html>

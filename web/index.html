@@ -30,7 +30,7 @@
         <div class="nav-links">
             <a href="#" class="active">Home</a>
             <a href="#">Library</a>
-            <a href="#">Settings</a>
+            <a href="settings.html">Settings</a>
         </div>
     </nav>
 
@@ -72,43 +72,11 @@
                 <h2 id="book-title">Book Title</h2>
                 <p id="book-author">Author Name</p>
             </div>
-            <div class="settings-group">
-                <div class="setting-item">
-                    <label>Voice ID</label>
-                    <input type="text" id="voice-id-input" class="glass-input" value="21m00Tcm4TlvDq8ikWAM"
-                        placeholder="Enter Voice ID" style="width: 150px;">
-                </div>
-
-                <div class="setting-item">
-                    <label>Stability: <span id="stability-val">0.5</span></label>
-                    <input type="range" id="stability-range" min="0" max="1" step="0.05" value="0.5">
-                </div>
-
-                <div class="setting-item">
-                    <label>Similarity: <span id="similarity-val">0.75</span></label>
-                    <input type="range" id="similarity-range" min="0" max="1" step="0.05" value="0.75">
-                </div>
-
-                <div class="setting-item">
-                    <label>Style: <span id="style-val">0.0</span></label>
-                    <input type="range" id="style-range" min="0" max="1" step="0.05" value="0.0">
-                </div>
-
-                <div class="setting-item">
-                    <label>Boost</label>
-                    <input type="checkbox" id="speaker-boost-check" checked>
-                </div>
-
-                <div class="setting-item">
-                    <label>Art Style</label>
-                    <select id="style-select" class="glass-input">
-                        <option value="storybook">Storybook</option>
-                        <option value="cinematic">Cinematic</option>
-                        <option value="anime">Anime</option>
-                        <option value="watercolor">Watercolor</option>
-                    </select>
-                </div>
-            </div>
+            <!-- Settings moved to settings.html -->
+            <a href="settings.html" class="btn-sm"
+                style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem;">
+                ⚙️ Configure
+            </a>
         </div>
 
         <div class="dashboard-grid">
