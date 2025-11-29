@@ -82,6 +82,22 @@ async def generate_audio(text, output_path="audiobook.mp3", voice_id="21m00Tcm4T
             
     except Exception as e:
         print(f"Exception in ElevenLabs TTS: {e}")
+        print("Falling back to Edge TTS...")
+        return await generate_audio_edge(text, output_path)
+
+async def generate_audio_edge(text, output_path):
+    """
+    Fallback using edge-tts (free).
+    """
+    try:
+        import edge_tts
+        print(f"Generating audio using Edge TTS...")
+        communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural")
+        await communicate.save(output_path)
+        print(f"Audio saved to {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"Edge TTS failed: {e}")
         raise e
 
 def generate_audiobook(text, output_path="audiobook.mp3"):

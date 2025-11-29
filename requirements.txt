@@ -17,6 +17,7 @@ openai>=1.0.0
 # Audio & Media
 gTTS>=2.4.0
 edge-tts>=6.1.0
+edge-tts>=6.1.0
 moviepy>=1.0.3
 
 # Image Processing
