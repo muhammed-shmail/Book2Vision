@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book2Vision | Choose Mode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar glass">
+        <div class="logo">Book2Vision</div>
+        <div class="nav-links">
+            <a href="landing.html">Home</a>
+        </div>
+    </nav>
+
+    <section class="container mode-selection-container">
+        <div class="hero-content">
+            <h1>Choose Your Journey</h1>
+            <p>Select how you want to experience your book today.</p>
+        </div>
+
+        <div class="modes-grid">
+            <!-- Story Mode Card -->
+            <a href="index.html" class="mode-card glass">
+                <div class="mode-icon">📖</div>
+                <div class="mode-content">
+                    <h2>Story Mode</h2>
+                    <p>Immersive audio narration with dynamic AI-generated visuals. Perfect for fiction and leisure
+                        reading.</p>
+                    <span class="btn-arrow">Launch Story →</span>
+                </div>
+                <div class="mode-bg-glow" style="background: var(--primary);"></div>
+            </a>
+
+            <!-- Study Mode Card -->
+            <a href="study.html" class="mode-card glass">
+                <div class="mode-icon">🎓</div>
+                <div class="mode-content">
+                    <h2>Study Mode</h2>
+                    <p>Deep analysis, summarization, and interactive Q&A. Ideal for textbooks, research papers, and
+                        learning.</p>
+                    <span class="btn-arrow">Launch Study →</span>
+                </div>
+                <div class="mode-bg-glow" style="background: var(--secondary);"></div>
+            </a>
+        </div>
+    </section>
+
+</body>
+
+</html>
