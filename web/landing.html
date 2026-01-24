@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="style.css">
     <style>
         /* Landing specific overrides */
+        html {
+            scroll-behavior: smooth;
+        }
+
         .landing-hero {
             height: 100vh;
             display: flex;
@@ -21,74 +25,187 @@
             align-items: center;
             text-align: center;
             padding: 0 2rem;
+            position: relative;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            z-index: 2;
+        }
+
+        .hero-content h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 4.5rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #fff 0%, #a5a5a5 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-content p {
+            font-size: 1.35rem;
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2rem;
+            animation: bounce 2s infinite;
+            opacity: 0.6;
+            color: var(--text-muted);
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateX(-50%) translateY(0);
+            }
+
+            40% {
+                transform: translateX(-50%) translateY(-10px);
+            }
+
+            60% {
+                transform: translateX(-50%) translateY(-5px);
+            }
+        }
+
+        .features-section {
+            padding: 6rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-            width: 100%;
-            max-width: 1200px;
+            gap: 2.5rem;
         }
 
         .feature-card {
-            padding: 2rem;
+            padding: 2.5rem;
             text-align: left;
-            transition: transform 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.03);
+            /* Slightly lighter glass */
         }
 
         .feature-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--primary);
         }
 
         .feature-icon {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
             display: inline-block;
+            background: rgba(255, 255, 255, 0.05);
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .cta-group {
-            margin-top: 3rem;
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-main);
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-size: 1rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            margin-bottom: 4rem;
+        }
+
+        /* Premium Button Styles */
+        .btn-group {
             display: flex;
             gap: 1.5rem;
             justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .landing-btn {
+            padding: 1rem 2.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-glow {
+            background: linear-gradient(135deg, #7F5AF0 0%, #6246EA 100%);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(127, 90, 240, 0.4);
+        }
+
+        .btn-glow:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(127, 90, 240, 0.6);
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
         }
 
         /* Responsive Design */
         @media (max-width: 768px) {
-            .landing-hero {
-                height: auto;
-                min-height: 100vh;
-                padding: 6rem 1.5rem 2rem;
-            }
-
             .hero-content h1 {
-                font-size: 2.5rem;
+                font-size: 2.8rem;
             }
 
-            .hero-content p {
-                font-size: 1rem;
-            }
-
-            .cta-group {
+            .btn-group {
                 flex-direction: column;
-                gap: 1rem;
                 width: 100%;
                 max-width: 300px;
                 margin-left: auto;
                 margin-right: auto;
             }
 
-            .btn-primary {
+            .landing-btn {
                 width: 100%;
-                text-align: center;
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-                margin-top: 3rem;
             }
         }
     </style>
@@ -99,39 +216,63 @@
     <!-- Background Elements -->
     <div class="bg-orb orb-1"></div>
     <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
 
     <!-- Navbar -->
     <nav class="navbar glass">
-        <div class="logo">Book2Vision</div>
+        <div class="logo">Book2Vision <span class="badge">Beta</span></div>
         <div class="nav-links">
             <a href="#" class="active">Home</a>
             <a href="#features">Features</a>
-            <a href="index.html">Launch App</a>
+            <a href="modes.html" class="btn-sm btn-primary">Launch App</a>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <div class="feature-card glass">
-        <span class="feature-icon">🎧</span>
-        <h3>AI Narration</h3>
-        <p style="color: var(--text-muted); margin-top: 0.5rem;">High-quality, emotive voice synthesis that
-            brings characters to life with distinct personalities.</p>
-    </div>
+    <header class="landing-hero">
+        <div class="hero-content fade-in">
+            <h1>Experience Books <br> Like Never Before</h1>
+            <p>Transform your reading list into immersive multimedia journeys. <br> AI-powered narration, dynamic
+                visuals, and interactive characters.</p>
 
-    <div class="feature-card glass">
-        <span class="feature-icon">🎨</span>
-        <h3>Visual Imagination</h3>
-        <p style="color: var(--text-muted); margin-top: 0.5rem;">Dynamic scene generation and character
-            visualization that evolves as you read.</p>
-    </div>
+            <div class="btn-group">
+                <a href="modes.html" class="landing-btn btn-glow">
+                    Start Reading Now
+                </a>
+                <a href="#features" class="landing-btn btn-glass">
+                    Learn More
+                </a>
+            </div>
+        </div>
 
-    <div class="feature-card glass">
-        <span class="feature-icon">🧠</span>
-        <h3>Interactive Q&A</h3>
-        <p style="color: var(--text-muted); margin-top: 0.5rem;">Chat with your book. Ask questions about the
-            plot, characters, or lore and get instant answers.</p>
-    </div>
-    </div>
+        <div class="scroll-indicator">↓</div>
+    </header>
+
+    <!-- Features Section (Now Outside Header) -->
+    <section id="features" class="features-section fade-in">
+        <h2 class="section-title">Why Book2Vision?</h2>
+        <div class="features-grid">
+            <div class="feature-card glass">
+                <span class="feature-icon">🎧</span>
+                <h3>AI Narration</h3>
+                <p>High-quality, emotive voice synthesis that brings characters to life with distinct personalities
+                    and cinematic pacing.</p>
+            </div>
+
+            <div class="feature-card glass">
+                <span class="feature-icon">🎨</span>
+                <h3>Visual Imagination</h3>
+                <p>Dynamic scene generation that evolves as you read. See the world of your book through
+                    AI-generated art styles.</p>
+            </div>
+
+            <div class="feature-card glass">
+                <span class="feature-icon">🧠</span>
+                <h3>Interactive Q&A</h3>
+                <p>Chat with your book. Ask questions about the plot, characters, or lore and get instant,
+                    context-aware answers.</p>
+            </div>
+        </div>
     </section>
 
 </body>

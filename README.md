@@ -40,8 +40,8 @@
 
 1.  Start the server:
     ```bash
-    python src/server.py
-    ```
+                                    
+   python src/server.py     ```
    
-2.  Open your browser and navigate to `http://localhost:8000`.
-3.  Upload a book to start the transformation.
+2.  Open your browser and navigate to `http://localhost:8000`.                              
+3.  Upload a book to start the transformation.T

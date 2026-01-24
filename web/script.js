@@ -46,6 +46,7 @@ let currentStoryText = "";
 let isPlaying = false;
 let audioDuration = 0;
 let isTogglingAudio = false;
+let visualsGenerated = false;
 
 // Default Settings
 const DEFAULT_SETTINGS = {
@@ -63,6 +64,7 @@ const DEFAULT_SETTINGS = {
 // ============================================
 
 function init() {
+    console.log('Script initialized');
     setupEventListeners();
     // Initialize settings if not present
     if (!localStorage.getItem('b2v_settings')) {
@@ -71,7 +73,9 @@ function init() {
 
     // Page-specific logic
     const path = window.location.pathname;
+    console.log('Current path:', path);
     if (path.includes('library.html')) {
+        console.log('Library page detected, calling fetchLibrary()');
         fetchLibrary();
     } else {
         // Home page: Check for bookId param
@@ -151,7 +155,7 @@ function setupEventListeners() {
     }
 
     // Visuals
-    if (btnVisuals) btnVisuals.addEventListener('click', generateVisuals);
+    if (btnVisuals) btnVisuals.addEventListener('click', () => generateVisuals());
     if (btnPodcast) btnPodcast.addEventListener('click', generatePodcast);
 
     // Chatbot FAB + Close button
@@ -223,10 +227,19 @@ async function handleUpload(file) {
         loadDashboard(data, file.name);
 
     } catch (error) {
-        console.error(error);
-        showToast(error.message, "error");
-        dropZone.classList.remove('hidden');
-        uploadStatus.classList.add('hidden');
+        console.error("Upload error:", error);
+        showToast(`Upload Failed: ${error.message}`, "error");
+
+        // Show error in status area too
+        statusDetail.textContent = `Error: ${error.message}`;
+        statusDetail.style.color = "var(--danger)";
+
+        // Reset after delay
+        setTimeout(() => {
+            dropZone.classList.remove('hidden');
+            uploadStatus.classList.add('hidden');
+            statusDetail.style.color = ""; // Reset color
+        }, 4000);
     }
 }
 
@@ -255,7 +268,21 @@ function loadDashboard(data, filename) {
     fetchSuggestedQuestions();
 
     // Fetch full story text (background)
+    // Fetch full story text (background)
     fetchStoryContent();
+
+    // Inject Immersive Mode Button
+    injectImmersiveButton();
+
+    // Check for existing podcast
+    if (data.analysis.podcast && data.analysis.podcast.length > 0) {
+        podcastPlaylist = data.analysis.podcast;
+        btnPodcast.innerHTML = '<span class="icon">▶</span> Play Podcast';
+        showToast("Podcast loaded from library!", "success");
+    } else {
+        podcastPlaylist = [];
+        btnPodcast.innerHTML = '<span class="icon">🎙️</span> Generate Podcast';
+    }
 }
 
 async function fetchStoryContent() {
@@ -306,9 +333,11 @@ function renderEntities(entities) {
         const imgId = `img-${name.replace(/[^a-zA-Z0-9]/g, '')}`;
 
         card.innerHTML = `
-            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random" class="entity-img" id="${imgId}">
-            <div style="font-weight:600; font-size: 0.95rem;">${name}</div>
-            <div style="font-size:0.75rem; opacity:0.7; margin-top: -0.3rem;">${role}</div>
+            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random" class="entity-avatar" id="${imgId}">
+            <div class="entity-info">
+                <h4>${name}</h4>
+                <p>${role}</p>
+            </div>
         `;
         entitiesList.appendChild(card);
 
@@ -467,22 +496,30 @@ function formatTime(seconds) {
 // VISUAL GENERATION
 // ============================================
 
-async function generateVisuals() {
+async function generateVisuals(styleOverride = null) {
     const originalText = btnVisuals.innerHTML;
     btnVisuals.innerHTML = '<span class="icon">⏳</span> Requesting...';
     btnVisuals.disabled = true;
 
-    const style = document.getElementById('style-select').value;
+    const style = (typeof styleOverride === 'string') ? styleOverride : document.getElementById('style-select').value;
+
 
     try {
+        console.log("Sending request to /api/generate/visuals...");
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const res = await fetch(`${API_BASE}/generate/visuals`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 style: style,
                 seed: 42
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
+        console.log("Response received:", res.status);
 
         if (!res.ok) throw new Error("Visuals generation failed");
 
@@ -490,6 +527,7 @@ async function generateVisuals() {
 
         // Immediate feedback: Inject placeholders
         injectImages(data.images, true);
+        visualsGenerated = true;
         showToast("Generation started! Images will appear one by one.", "success");
 
     } catch (e) {
@@ -587,6 +625,20 @@ async function generatePodcast() {
     // Stop Audiobook if playing
     if (isPlaying) {
         toggleAudio();
+    }
+
+    // Check if we already have a playlist
+    if (podcastPlaylist.length > 0) {
+        podcastPlayerUi.classList.remove('hidden');
+        document.querySelector('.audio-visualizer').classList.add('hidden');
+        document.getElementById('progress-container').classList.add('hidden');
+        document.querySelector('.time-display').classList.add('hidden');
+        document.querySelector('.player-controls').classList.add('hidden');
+
+        playPodcastSequence(0);
+        btnPodcast.disabled = false;
+        btnPodcast.innerHTML = originalText;
+        return;
     }
 
     // Show UI, Hide Audiobook Controls
@@ -770,6 +822,11 @@ async function fetchSuggestedQuestions() {
     }
 }
 
+function downloadAllContent() {
+    showToast("Preparing download...", "info");
+    window.location.href = `${API_BASE}/download_all`;
+}
+
 // --- Library ---
 
 // ============================================
@@ -779,30 +836,371 @@ async function fetchSuggestedQuestions() {
 let libraryBooks = [];
 
 async function fetchLibrary() {
+    console.log('fetchLibrary() called');
     try {
         // Show skeletons
         const grid = document.getElementById('library-grid');
         if (grid) {
+            console.log('Found library-grid element');
             grid.innerHTML = Array(6).fill(0).map(() => `
                 <div class="book-card glass skeleton-card" style="height: 200px;"></div>
             `).join('');
+        } else {
+            console.error('library-grid element not found!');
+            return;
         }
 
+        console.log('Fetching from /api/library...');
         const res = await fetch(`${API_BASE}/library`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: "Unknown error" }));
+            throw new Error(err.detail || "Failed to fetch library");
+        }
         const data = await res.json();
+        console.log('Received library data:', data);
         libraryBooks = data.books;
+        console.log(`libraryBooks set to ${libraryBooks.length} books`);
         renderLibrary();
     } catch (e) {
-        showToast("Failed to load library", "error");
+        console.error("Library fetch error:", e);
+        showToast(`Library Error: ${e.message}`, "error");
+        // Clear skeletons if failed
+        const grid = document.getElementById('library-grid');
+        if (grid) {
+            grid.innerHTML = `
+                <div class="library-empty-state glass">
+                    <div class="icon-large">⚠️</div>
+                    <h3>Could not load library</h3>
+                    <p>${e.message}</p>
+                    <button class="btn-primary" onclick="fetchLibrary()">Retry</button>
+                </div>
+            `;
+        }
     }
 }
 
+
+// ============================================
+// IMMERSIVE STORY MODE
+// ============================================
+
+let immersiveScenes = [];
+let currentSceneIndex = 0;
+let immersiveAudioPlayer = null;
+let immersivePlaying = false;
+let immersiveAutoAdvanceTimer = null;
+
+async function startImmersiveMode() {
+    const overlay = document.getElementById('immersive-overlay');
+    const imgEl = document.getElementById('immersive-image');
+    const videoEl = document.getElementById('immersive-video');
+    const textEl = document.getElementById('immersive-text');
+    const audioEl = document.getElementById('immersive-audio');
+
+    if (!overlay) return;
+
+    // Show overlay immediately
+    overlay.classList.remove('hidden');
+
+    if (!visualsGenerated) {
+        textEl.textContent = "Please generate visuals first using the 'Generate Visuals' button.";
+        setTimeout(() => {
+            closeImmersiveMode();
+            document.getElementById('btn-visuals').focus();
+            showToast("Please generate visuals first!", "info");
+        }, 2000);
+        return;
+    }
+
+    textEl.textContent = "Loading story scenes...";
+
+    try {
+        // 1. Ensure visuals are generated (or at least requested)
+        // We check if we have scenes from analysis
+        // We assume analysis is done if dashboard is loaded
+
+        // 2. Request Immersive Audio
+        const settings = getSettings();
+        const res = await fetch(`${API_BASE}/generate/immersive_audio`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                voice_id: settings.voiceId,
+                provider: settings.voiceId === "21m00Tcm4TlvDq8ikWAM" ? "elevenlabs" : "deepgram" // Simple logic
+            })
+        });
+
+        if (!res.ok) throw new Error("Failed to initialize immersive audio");
+        const data = await res.json();
+
+        // 3. Prepare Scenes Data
+        // We need to merge analysis scenes with audio URLs and image URLs
+        // We can reconstruct image URLs based on convention or fetch from state if we had an endpoint
+        // For now, we assume convention: image_01_scene_{i+1:02d}.jpg
+
+        // Fetch fresh analysis to get scenes text
+        // (Actually we don't have an endpoint to get just analysis, but we have it in `loadDashboard` data... 
+        //  Wait, `loadDashboard` didn't save analysis to global state, only summary. 
+        //  We need to fetch story again or store it. 
+        //  `fetchStoryContent` gets `/api/story` which returns entities and images but maybe not scenes structure?
+        //  Let's check `server.py` `/api/story`.
+        //  It returns `state.ingestion_result.get("body")`, `entities`, `images`.
+        //  It does NOT return scenes.
+        //  I should update `/api/story` or add a new endpoint to get scenes.
+        //  OR, I can just use the audio/visuals we generated.
+        //  But I need the text to display!
+
+        //  Quick fix: Fetch `/api/upload` response again? No.
+        //  I'll fetch `/api/story` and assume I can get scenes from it? No.
+
+        //  I'll add a quick endpoint to get scenes or update `/api/story`.
+        //  Let's assume I'll update `/api/story` in next step.
+        //  For now, I'll try to fetch `/api/story` and hope I added scenes to it? No I didn't.
+
+        //  I will use a placeholder for text if missing, or fetch from a new endpoint.
+        //  Let's add `getScenes` to `script.js` which calls `/api/story` (I will update server to include scenes).
+
+        const storyRes = await fetch(`${API_BASE}/story`);
+        const storyData = await storyRes.json();
+        const scenes = storyData.scenes || []; // I need to ensure server returns this
+
+        immersiveScenes = scenes.map((scene, i) => ({
+            image: `/api/assets/visuals/image_01_scene_${String(i + 1).padStart(2, '0')}.jpg`,
+            audio: data.audio_urls[i],
+            text: scene.excerpt || scene.description || "Scene " + (i + 1),
+            narrator: scene.narrator_intro || ""
+        }));
+
+        if (immersiveScenes.length === 0) {
+            textEl.textContent = "No scenes found. Please analyze the book first.";
+            return;
+        }
+
+        // Start Sequence
+        currentSceneIndex = 0;
+        loadScene(0);
+
+    } catch (e) {
+        console.error(e);
+        textEl.textContent = "Error loading immersive mode: " + e.message;
+    }
+}
+
+function loadScene(index) {
+    if (index < 0 || index >= immersiveScenes.length) return;
+
+    currentSceneIndex = index;
+    const scene = immersiveScenes[index];
+
+    const imgEl = document.getElementById('immersive-image');
+    const videoEl = document.getElementById('immersive-video');
+    const textEl = document.getElementById('immersive-text');
+    const audioEl = document.getElementById('immersive-audio');
+    const counterEl = document.getElementById('immersive-counter');
+    const playBtn = document.getElementById('btn-immersive-play');
+
+    // Update UI
+    counterEl.textContent = `Scene ${index + 1}/${immersiveScenes.length}`;
+    textEl.textContent = ""; // Clear text for typing effect
+
+    // Load Image/Video
+    imgEl.style.opacity = 0;
+    videoEl.classList.add('hidden');
+    videoEl.pause();
+
+    // Check if video exists for this scene
+    if (scene.video) {
+        imgEl.classList.add('hidden');
+        videoEl.classList.remove('hidden');
+        videoEl.src = scene.video;
+        videoEl.load();
+        // Video will auto-play if immersivePlaying is true via playImmersive()
+    } else {
+        videoEl.classList.add('hidden');
+        imgEl.classList.remove('hidden');
+        setTimeout(() => {
+            imgEl.src = `${scene.image}?t=${Date.now()}`; // Cache bust
+            imgEl.onload = () => { imgEl.style.opacity = 1; };
+        }, 300);
+    }
+
+    // Play Audio
+    audioEl.src = scene.audio;
+    audioEl.load();
+
+    // Auto-play
+    playImmersive();
+
+    // Typewriter text
+    typeWriter(scene.narrator ? `[${scene.narrator}] ${scene.text}` : scene.text, textEl);
+}
+
+async function generateMotionForCurrentScene() {
+    const btn = document.getElementById('btn-generate-motion');
+    const scene = immersiveScenes[currentSceneIndex];
+
+    if (scene.video) {
+        showToast("Motion already generated for this scene!", "info");
+        return;
+    }
+
+    if (!confirm("Generate motion video for this scene? This may take 1-2 minutes.")) return;
+
+    btn.disabled = true;
+    btn.innerHTML = "⏳";
+    showToast("Generating motion... please wait", "info");
+
+    try {
+        // Extract filename from URL
+        const filename = scene.image.split('/').pop().split('?')[0];
+
+        const res = await fetch(`${API_BASE}/generate/scene_video`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                scene_index: currentSceneIndex,
+                image_filename: filename,
+                prompt: scene.text // Use scene text as prompt
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Video generation failed");
+        }
+
+        const data = await res.json();
+
+        // Update scene data
+        scene.video = data.video_url;
+        immersiveScenes[currentSceneIndex] = scene;
+
+        showToast("Motion generated! Reloading scene...", "success");
+        loadScene(currentSceneIndex);
+
+    } catch (e) {
+        console.error(e);
+        showToast(`Motion generation failed: ${e.message}`, "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = "🎬";
+    }
+}
+
+function playImmersive() {
+    const audioEl = document.getElementById('immersive-audio');
+    const videoEl = document.getElementById('immersive-video');
+    const playBtn = document.getElementById('btn-immersive-play');
+
+    const playPromise = audioEl.play();
+
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            immersivePlaying = true;
+            playBtn.textContent = "⏸️";
+
+            // Play video if available
+            if (!videoEl.classList.contains('hidden')) {
+                videoEl.play().catch(e => console.warn("Video play failed", e));
+            }
+
+            // Auto-advance when ended
+            audioEl.onended = () => {
+                immersivePlaying = false;
+                playBtn.textContent = "▶️";
+                if (!videoEl.classList.contains('hidden')) videoEl.pause();
+
+                // Wait 2 seconds then next
+                immersiveAutoAdvanceTimer = setTimeout(() => {
+                    if (currentSceneIndex < immersiveScenes.length - 1) {
+                        nextScene();
+                    }
+                }, 2000);
+            };
+        }).catch(e => {
+            console.warn("Audio play failed", e);
+            immersivePlaying = false;
+            playBtn.textContent = "▶️";
+        });
+    }
+}
+
+function pauseImmersive() {
+    const audioEl = document.getElementById('immersive-audio');
+    const videoEl = document.getElementById('immersive-video');
+    const playBtn = document.getElementById('btn-immersive-play');
+
+    audioEl.pause();
+    if (!videoEl.classList.contains('hidden')) videoEl.pause();
+
+    immersivePlaying = false;
+    playBtn.textContent = "▶️";
+    if (immersiveAutoAdvanceTimer) clearTimeout(immersiveAutoAdvanceTimer);
+}
+
+function toggleImmersivePlay() {
+    if (immersivePlaying) pauseImmersive();
+    else playImmersive();
+}
+
+function nextScene() {
+    if (currentSceneIndex < immersiveScenes.length - 1) {
+        loadScene(currentSceneIndex + 1);
+    }
+}
+
+function prevScene() {
+    if (currentSceneIndex > 0) {
+        loadScene(currentSceneIndex - 1);
+    }
+}
+
+function closeImmersiveMode() {
+    pauseImmersive();
+    document.getElementById('immersive-overlay').classList.add('hidden');
+}
+
+function typeWriter(text, element, i = 0) {
+    if (i === 0) element.textContent = "";
+    if (i < text.length) {
+        element.textContent += text.charAt(i);
+        setTimeout(() => typeWriter(text, element, i + 1), 30);
+    }
+}
+
+function injectImmersiveButton() {
+    const podcastBtn = document.getElementById('btn-podcast');
+    if (podcastBtn && !document.getElementById('btn-immersive')) {
+        const immersiveBtn = document.createElement('button');
+        immersiveBtn.id = 'btn-immersive';
+        immersiveBtn.className = 'btn-sm btn-immersive';
+        immersiveBtn.onclick = () => startImmersiveMode();
+        immersiveBtn.innerHTML = '<span class="icon" aria-hidden="true">✨</span> Immersive Mode';
+        immersiveBtn.style.opacity = '1';
+        immersiveBtn.style.cursor = 'pointer';
+        // Insert after podcast button
+        podcastBtn.parentNode.insertBefore(immersiveBtn, podcastBtn.nextSibling);
+        immersiveBtn.style.marginLeft = '0.5rem';
+    }
+}
+window.startImmersiveMode = startImmersiveMode;
+window.toggleImmersivePlay = toggleImmersivePlay;
+window.nextScene = nextScene;
+window.prevScene = prevScene;
+window.closeImmersiveMode = closeImmersiveMode;
+
 function renderLibrary() {
     const grid = document.getElementById('library-grid');
-    if (!grid) return; // Guard clause for non-library pages
+    if (!grid) {
+        console.error('library-grid element not found');
+        return; // Guard clause for non-library pages
+    }
 
-    const searchTerm = document.getElementById('library-search').value.toLowerCase();
-    const sortMethod = document.getElementById('library-sort').value;
+    const searchInput = document.getElementById('library-search');
+    const sortSelect = document.getElementById('library-sort');
+
+    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+    const sortMethod = sortSelect ? sortSelect.value : 'date-desc';
 
     // Filter
     let filtered = libraryBooks.filter(book =>
@@ -844,45 +1242,92 @@ function renderLibrary() {
 
     filtered.forEach(book => {
         const card = document.createElement('div');
-        card.className = 'book-card glass fade-in-element';
+        card.className = 'book-card fade-in-element';
 
         // Format date
-        const date = new Date(book.upload_date * 1000).toLocaleDateString(undefined, {
+        const date = new Date(book.upload_date * 1000).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'
         });
 
-        let thumbContent = `<div class="book-card-placeholder-icon">📖</div>`;
+        let thumbContent = `
+            <div class="book-thumbnail no-image">
+                <div class="poster-placeholder-text">${book.title}</div>
+                <div style="font-size: 3rem; opacity: 0.3;">📖</div>
+                <div style="font-size: 0.8rem; opacity: 0.5; margin-top: 0.5rem;">Cover generating...</div>
+            </div>
+        `;
+
         if (book.thumbnail) {
-            thumbContent = `<img src="/api/assets/${book.thumbnail}" alt="${book.title}" class="book-card-img" loading="lazy">`;
+            thumbContent = `
+                <div class="book-thumbnail">
+                    <img src="/api/assets/${book.thumbnail}" alt="${book.title}" loading="lazy">
+                    <div class="book-actions-overlay">
+                        <button class="btn-action-round" onclick="openBook('${book.id}')" title="Read Book">▶</button>
+                        <button class="btn-action-round" onclick="deleteBook('${book.id}')" style="background: rgba(239, 69, 101, 0.2); border-color: var(--danger);" title="Delete">×</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // If no thumbnail, we still want the overlay for delete/open, but maybe different?
+            // Actually, let's keep the "Create Poster" button visible if no image.
+            // But we also need a way to open/delete if no image.
+            // The design shows "Extracted PDF" cards WITH images.
+            // My code above puts the button inside the no-image block.
         }
 
         card.innerHTML = `
-            <div class="book-card-cover-area">
-                ${thumbContent}
-                <div class="book-card-overlay">
-                    <button class="btn-icon-glass" onclick="openBook('${book.id}')" title="Read Book">
-                        <span style="font-size: 1.5rem;">▶</span>
-                    </button>
-                </div>
-                <button class="btn-delete-absolute" onclick="deleteBook('${book.id}')" title="Delete Book">×</button>
-            </div>
+            ${thumbContent}
             
-            <div class="book-card-content">
-                <div class="book-card-meta">
-                    <h3 class="book-card-title" title="${book.title}">${book.title}</h3>
-                    <p class="book-card-author">${book.author}</p>
-                </div>
+            <div class="book-content">
+                <h3 class="book-title" title="${book.title}">${book.title}</h3>
+                <p class="book-author">${book.author}</p>
                 
-                <div class="book-card-footer">
+                <div class="book-footer">
                     <span class="book-date">${date}</span>
-                    <button class="btn-text-action" onclick="openBook('${book.id}')">Open Library →</button>
+                    <a href="#" onclick="openBook('${book.id}'); return false;" class="btn-open-link">Open Library →</a>
                 </div>
             </div>
         `;
         grid.appendChild(card);
     });
+}
+
+async function generatePoster(bookId, btn, event) {
+    if (event) event.stopPropagation();
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span>⏳</span> Creating...';
+    btn.disabled = true;
+
+    try {
+        // First load the book to ensure state is set (if needed by backend)
+        // Actually backend endpoint takes book_id from state, so we need to load it first?
+        // My backend endpoint `generate_poster` checks `state.book_id`.
+        // But `state.book_id` is global and might be different.
+        // I should update backend to accept book_id in body or param, OR load it here.
+        // Loading it is safer.
+
+        await fetch(`${API_BASE}/library/load/${bookId}`, { method: 'POST' });
+
+        const res = await fetch(`${API_BASE}/generate/poster`, {
+            method: 'POST'
+        });
+
+        if (!res.ok) throw new Error("Poster generation failed");
+
+        const data = await res.json();
+        showToast("Cover created!", "success");
+
+        // Refresh library to show new image
+        fetchLibrary();
+
+    } catch (e) {
+        showToast(e.message, "error");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 function filterLibrary() {

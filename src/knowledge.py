@@ -3,7 +3,7 @@ import os
 import random
 # spaCy imported lazily in load_spacy() to avoid startup overhead if not needed
 from src.config import GEMINI_API_KEY
-import google.generativeai as genai
+from google import genai
 from src.gemini_utils import get_gemini_model
 
 nlp = None
@@ -135,7 +135,7 @@ def generate_quiz_with_llm(text, output_path):
         return generate_quiz_with_spacy(text, output_path)
         
     try:
-        model = get_gemini_model(capability="text", api_key=api_key)
+        client, model_name = get_gemini_model(capability="text", api_key=api_key)
         
         prompt = f"""
         Generate 5 multiple choice questions based on the following text.
@@ -144,7 +144,7 @@ def generate_quiz_with_llm(text, output_path):
         Text: {text[:3000]}
         """
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=model_name, contents=prompt)
         # Clean up response text
         response_text = response.text.strip()
         if response_text.startswith("```json"):
@@ -251,7 +251,7 @@ def ask_question_with_gemini(context, question):
         return "No API keys available for Q&A."
         
     try:
-        model = get_gemini_model(capability="text", api_key=api_key)
+        client, model_name = get_gemini_model(capability="text", api_key=api_key)
         
         prompt = f"""
         You are an AI assistant helping a user understand a book.
@@ -263,7 +263,7 @@ def ask_question_with_gemini(context, question):
         Question: {question}
         """
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=model_name, contents=prompt)
         return response.text.strip()
     except Exception as e:
         return f"Error with Gemini: {str(e)}"
@@ -322,7 +322,7 @@ def suggest_questions_with_gemini(context):
         return ["What is the plot?", "Who are the characters?"]
         
     try:
-        model = get_gemini_model(capability="text", api_key=api_key)
+        client, model_name = get_gemini_model(capability="text", api_key=api_key)
         
         prompt = f"""
         Generate 2 interesting questions a reader might ask about this book.
@@ -331,7 +331,7 @@ def suggest_questions_with_gemini(context):
         Context: {context[:5000]}...
         """
         
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=model_name, contents=prompt)
         return parse_json_list(response.text.strip())
     except Exception as e:
         print(f"Gemini Suggestion Error: {e}")

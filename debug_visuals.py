@@ -1,46 +1,69 @@
+import asyncio
 import os
 import sys
-import logging
-from src.visuals import generate_images
+from pathlib import Path
+from dotenv import load_dotenv
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Setup path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
-def debug_visuals():
-    print("=== Debugging Visuals Generation ===")
-    
-    output_dir = "temp_upload/visuals_debug"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
-    # Mock semantic map similar to what might be produced
-    semantic_map = {
-        "scenes": [
-            "A dense jungle with tall ancient trees and sunlight filtering through leaves.",
-            "A T-Rex roaring in a clearing, showing its massive teeth.",
-            "Captain Nova standing bravely with a futuristic gadget in hand.",
-            "The team escaping in a high-tech vehicle as the dinosaur chases them."
-        ],
-        "entities": [
-            ("Captain Nova", "Protagonist", "A brave space explorer"),
-            ("T-Rex", "Antagonist", "A massive carnivorous dinosaur"),
-            ("Velociraptors", "Minions", "Fast and cunning pack hunters")
-        ]
-    }
-    
-    title = "Dino F35 Story.pdf"
-    
-    print(f"Output Directory: {output_dir}")
-    print("Starting generation...")
-    
+# Load env
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
+
+from src.visuals import generate_images, generate_poster_with_deapi
+from src.prompts import TITLE_PROMPT_TEMPLATE
+
+async def test_pollinations():
+    print("\n--- Testing Pollinations ---")
     try:
-        import asyncio
-        images = asyncio.run(generate_images(semantic_map, output_dir, style="storybook", seed=42, title=title))
-        print(f"✅ Generated {len(images)} images.")
+        output_dir = "debug_output"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Mock semantic map
+        semantic_map = {
+            "scenes": ["A beautiful sunset over a calm ocean."],
+            "entities": [["Hero", "Protagonist", "A brave warrior"]]
+        }
+        
+        print("Generating images with Pollinations...")
+        images = await generate_images(semantic_map, output_dir, provider="pollinations", title="Debug Book")
+        print(f"Generated {len(images)} images.")
         for img in images:
-            print(f" - {os.path.basename(img)}")
+            print(f" - {img}")
+            
     except Exception as e:
-        print(f"❌ Generation failed: {e}")
+        print(f"Pollinations failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+async def test_deapi():
+    print("\n--- Testing deAPI ---")
+    api_key = os.getenv("DEAPI_API_KEY")
+    if not api_key:
+        print("Skipping deAPI test: DEAPI_API_KEY not found.")
+        return
+
+    try:
+        output_dir = "debug_output"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        print(f"Generating poster with deAPI (Key: {api_key[:5]}...)...")
+        poster = await generate_poster_with_deapi("Debug Title", "Debug Author", output_dir)
+        
+        if poster:
+            print(f"Poster generated: {poster}")
+        else:
+            print("Poster generation returned None.")
+            
+    except Exception as e:
+        print(f"deAPI failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+async def main():
+    await test_pollinations()
+    await test_deapi()
 
 if __name__ == "__main__":
-    debug_visuals()
+    asyncio.run(main())

@@ -47,7 +47,7 @@
                 <p>Turn any PDF into an immersive multimedia journey with AI-powered narration and visualization.</p>
 
                 <div class="upload-zone glass" id="drop-zone" role="button" tabindex="0" aria-label="Upload book area">
-                    <div class="upload-icon" aria-hidden="true">📂</div>
+                    <div class="upload-icon" aria-hidden="true">🗁</div>
                     <h3>Drag & Drop your book here</h3>
                     <p>Supports PDF, EPUB, TXT</p>
                     <input type="file" id="file-input" hidden accept=".pdf,.epub,.txt" aria-label="File upload">
@@ -56,117 +56,14 @@
                 </div>
 
                 <div id="upload-status" class="hidden fade-in" aria-live="polite">
-                    <!-- Custom Camping Loader -->
-                    <div class="scene">
-                        <div class="forest">
-                            <div class="tree tree1">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                            </div>
-
-                            <div class="tree tree2">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-
-                            <div class="tree tree3">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-
-                            <div class="tree tree4">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-
-                            <div class="tree tree5">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-
-                            <div class="tree tree6">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-
-                            <div class="tree tree7">
-                                <div class="branch branch-top"></div>
-                                <div class="branch branch-middle"></div>
-                                <div class="branch branch-bottom"></div>
-                            </div>
-                        </div>
-
-                        <div class="tent">
-                            <div class="roof"></div>
-                            <div class="roof-border-left">
-                                <div class="roof-border roof-border1"></div>
-                                <div class="roof-border roof-border2"></div>
-                                <div class="roof-border roof-border3"></div>
-                            </div>
-                            <div class="entrance">
-                                <div class="door left-door">
-                                    <div class="left-door-inner"></div>
-                                </div>
-                                <div class="door right-door">
-                                    <div class="right-door-inner"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="floor">
-                            <div class="ground ground1"></div>
-                            <div class="ground ground2"></div>
-                        </div>
-
-                        <div class="fireplace">
-                            <div class="support"></div>
-                            <div class="support"></div>
-                            <div class="bar"></div>
-                            <div class="hanger"></div>
-                            <div class="smoke"></div>
-                            <div class="pan"></div>
-                            <div class="fire">
-                                <div class="line line1">
-                                    <div class="particle particle1"></div>
-                                    <div class="particle particle2"></div>
-                                    <div class="particle particle3"></div>
-                                    <div class="particle particle4"></div>
-                                </div>
-                                <div class="line line2">
-                                    <div class="particle particle1"></div>
-                                    <div class="particle particle2"></div>
-                                    <div class="particle particle3"></div>
-                                    <div class="particle particle4"></div>
-                                </div>
-                                <div class="line line3">
-                                    <div class="particle particle1"></div>
-                                    <div class="particle particle2"></div>
-                                    <div class="particle particle3"></div>
-                                    <div class="particle particle4"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="time-wrapper">
-                            <div class="time">
-                                <div class="day"></div>
-                                <div class="night">
-                                    <div class="moon"></div>
-                                    <div class="star star1 star-big"></div>
-                                    <div class="star star2 star-big"></div>
-                                    <div class="star star3 star-big"></div>
-                                    <div class="star star4"></div>
-                                    <div class="star star5"></div>
-                                    <div class="star star6"></div>
-                                    <div class="star star7"></div>
-                                </div>
-                            </div>
-                        </div>
+                    <!-- Custom Book Loader -->
+                    <div class="book">
+                        <div class="book__pg-shadow"></div>
+                        <div class="book__pg"></div>
+                        <div class="book__pg book__pg--2"></div>
+                        <div class="book__pg book__pg--3"></div>
+                        <div class="book__pg book__pg--4"></div>
+                        <div class="book__pg book__pg--5"></div>
                     </div>
 
                     <!-- Upload progress bar -->
@@ -328,6 +225,10 @@
                         <button id="btn-visuals" class="btn-sm">
                             <span class="icon" aria-hidden="true">🎨</span> Generate Visuals
                         </button>
+                        <button id="btn-create-comic" class="btn-sm"
+                            style="margin-left: 0.5rem; background: rgba(255, 255, 255, 0.2);">
+                            <span class="icon" aria-hidden="true">🗯️</span> Create Comic
+                        </button>
                     </div>
                     <div class="image-display" id="image-display" aria-label="Generated Visuals">
                         <div class="placeholder-content">
@@ -361,9 +262,32 @@
         <button id="chatbot-fab" class="chatbot-fab btn-primary hidden" aria-label="Open Chatbot">
             💬
         </button>
+        <!-- Immersive Mode Overlay -->
+        <div id="immersive-overlay" class="immersive-overlay hidden" aria-label="Immersive Story Player">
+            <div class="immersive-content">
+                <div class="immersive-image-container">
+                    <img id="immersive-image" src="" alt="Scene Visual" class="fade-in">
+                </div>
+                <div class="immersive-text-container glass">
+                    <p id="immersive-text" class="typewriter-text"></p>
+                </div>
+                <div class="immersive-controls">
+                    <button class="btn-icon-lg" onclick="prevScene()">⏮️</button>
+                    <button class="btn-icon-lg" id="btn-immersive-play" onclick="toggleImmersivePlay()">⏸️</button>
+                    <button class="btn-icon-lg" onclick="nextScene()">⏭️</button>
+                    <button class="btn-icon-lg" id="btn-generate-motion" onclick="generateMotionForCurrentScene()"
+                        title="Animate Scene" style="margin-left: 1rem;">🎬</button>
+                    <button class="btn-icon-lg" onclick="closeImmersiveMode()" style="margin-left: 1rem;">❌</button>
+                </div>
+                <div class="immersive-progress">
+                    <span id="immersive-counter">Scene 1/5</span>
+                </div>
+            </div>
+            <audio id="immersive-audio" hidden></audio>
+        </div>
     </main>
 
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=12"></script>
 </body>
 
 </html>

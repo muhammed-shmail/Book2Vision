@@ -6,6 +6,8 @@ import mimetypes
 import traceback
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks, Request
+from fastapi.responses import FileResponse
+import zipfile
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,19 +15,51 @@ from pydantic import BaseModel
 from typing import Optional, List
 import sys
 import time
+from contextlib import asynccontextmanager
 
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Force load env vars
+import src.config
+
 from src.ingestion import ingest_book, clean_format
 from src.analysis import semantic_analysis
 from src.audio import generate_audio as generate_audio_service
-from src.visuals import generate_images, generate_entity_image
+from src.audio import generate_audio as generate_audio_service
+from src.visuals import generate_images, generate_entity_image, generate_poster_with_deapi
+from src.knowledge import generate_quizzes, ask_question, suggest_questions
 from src.knowledge import generate_quizzes, ask_question, suggest_questions
 from src.podcast import generate_podcast_script, generate_podcast_audio
 from src.library import LibraryManager
+from src.video import generate_video_with_deapi
 
-app = FastAPI(title="Book2Vision API")
+# app = FastAPI(title="Book2Vision API") # Moved below lifespan
+
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Starting up Book2Vision...")
+    print("Access the application at: http://localhost:8000")
+    # Validate critical env vars
+    if not os.getenv("GEMINI_API_KEY"):
+        print("⚠️  CRITICAL WARNING: GEMINI_API_KEY is not set. AI features will fail.")
+    else:
+        print("✅ GEMINI_API_KEY found.")
+    
+    if not os.getenv("DEEPSEEK_API_KEY"):
+        print("⚠️  WARNING: DEEPSEEK_API_KEY is not set. Podcast generation will use fallback scripts.")
+    else:
+        print("✅ DEEPSEEK_API_KEY found.")
+
+    if not os.getenv("DEAPI_API_KEY"):
+        print("⚠️  WARNING: DEAPI_API_KEY is not set. High-quality image generation will fail.")
+    else:
+        print("✅ DEAPI_API_KEY found.")
+    yield
+
+app = FastAPI(title="Book2Vision API", lifespan=lifespan)
 
 # Security Headers Middleware
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -62,21 +96,6 @@ app.add_middleware(
     allow_methods=["GET", "POST"],  # Only needed methods
     allow_headers=["Content-Type", "Authorization"],  # Specific headers
 )
-
-@app.on_event("startup")
-async def startup_event():
-    print("Starting up Book2Vision...")
-    print("Access the application at: http://localhost:8000")
-    # Validate critical env vars
-    if not os.getenv("GEMINI_API_KEY"):
-        print("⚠️  CRITICAL WARNING: GEMINI_API_KEY is not set. AI features will fail.")
-    else:
-        print("✅ GEMINI_API_KEY found.")
-    
-    if not os.getenv("DEEPSEEK_API_KEY"):
-        print("⚠️  WARNING: DEEPSEEK_API_KEY is not set. Podcast generation will use fallback scripts.")
-    else:
-        print("✅ DEEPSEEK_API_KEY found.")
 
 @app.get("/health")
 async def health_check():
@@ -122,7 +141,11 @@ class AppState:
         self.full_text = ""
         self.images_list = []
         self.entity_images = {}
+        self.images_list = []
+        self.entity_images = {}
         self.book_id = None
+        self.audiobook_path = None
+        self.immersive_audio_paths = []
 
 state = AppState()
 
@@ -143,10 +166,14 @@ class VisualsRequest(BaseModel):
 class QARequest(BaseModel):
     question: str
 
+class ImmersiveAudioRequest(BaseModel):
+    voice_id: str = "21m00Tcm4TlvDq8ikWAM"
+    provider: str = "deepgram"
+
 # Endpoints
 
 @app.post("/api/upload")
-async def upload_book(file: UploadFile = File(...)):
+async def upload_book(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
     try:
         # 1. Validate filename exists
         if not file.filename or file.filename == "":
@@ -199,7 +226,7 @@ async def upload_book(file: UploadFile = File(...)):
         
         # Ingest
         try:
-            ingestion_result = ingest_book(file_path)
+            ingestion_result = await ingest_book(file_path)
             ingestion_result["filename"] = safe_filename  # Use sanitized filename
         except Exception as e:
              print(f"Ingestion failed: {e}")
@@ -214,7 +241,7 @@ async def upload_book(file: UploadFile = File(...)):
         
         # Analysis
         try:
-            analysis = semantic_analysis(state.full_text)
+            analysis = await semantic_analysis(state.full_text)
             state.analysis_result = analysis
             
             # Pre-generation removed for performance. 
@@ -227,15 +254,64 @@ async def upload_book(file: UploadFile = File(...)):
             state.analysis_result = {"entities": [], "summary": "Analysis failed due to API error.", "scenes": []}
             analysis = state.analysis_result
 
-
         
-        # Add to library
+        # Add to library FIRST (so we have book_id)
         new_book = library_manager.add_book({
             "title": ingestion_result.get("title", "Unknown"),
             "author": ingestion_result.get("author", "Unknown"),
             "filename": safe_filename
-        })
+        }, full_text=state.full_text)
         state.book_id = new_book["id"]
+        
+        # Save analysis to DB
+        if state.analysis_result:
+             library_manager.save_analysis(state.book_id, state.analysis_result)
+        
+        # Auto-generate cover in background (after book_id is set)
+        title = ingestion_result.get("title", "Unknown")
+        author = ingestion_result.get("author", "Unknown")
+        # Auto-generate cover in background (after book_id is set)
+        title = ingestion_result.get("title", "Unknown")
+        author = ingestion_result.get("author", "Unknown")
+        
+        # Allow generation for Extracted PDF but use filename as prompt
+        should_generate = title and title != "Unknown"
+        if title == "Extracted PDF":
+            should_generate = True
+            
+        if should_generate:
+            print(f"🎨 Scheduling cover generation for: {title}")
+            
+            async def generate_cover_background():
+                try:
+                    visuals_dir = os.path.join(UPLOAD_DIR, "visuals")
+                    os.makedirs(visuals_dir, exist_ok=True)
+                    
+                    theme = analysis.get("summary", "")
+                    characters = analysis.get("entities", [])
+                    
+                    # Use filename if title is generic
+                    gen_title = title
+                    if title == "Extracted PDF" or title == "Book":
+                         gen_title = safe_filename.replace("_", " ").replace(".pdf", "").replace(".epub", "")
+                    
+                    print(f"🎨 Starting cover generation for: {gen_title}")
+                    cover_path = await generate_poster_with_deapi(
+                        gen_title, author, visuals_dir, 
+                        theme=theme, characters=characters
+                    )
+                    
+                    if cover_path and state.book_id:
+                        filename = os.path.basename(cover_path)
+                        library_manager.update_book_thumbnail(state.book_id, f"visuals/{filename}")
+                        print(f"✅ Auto-generated cover saved and linked to library: {cover_path}")
+                except Exception as e:
+                    print(f"⚠️ Auto cover generation failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Add to background tasks
+            background_tasks.add_task(generate_cover_background)
         
         return {
             "message": "Upload successful",
@@ -247,9 +323,9 @@ async def upload_book(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Upload error: {type(e).__name__} - {e}")
+        print(f"❌ Upload error: {type(e).__name__} - {e}")
         traceback.print_exc()  # Full trace in server logs only
-        raise HTTPException(status_code=500, detail="File upload failed. Please try again or contact support.")
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
 @app.get("/api/story")
 async def get_story():
@@ -259,6 +335,7 @@ async def get_story():
     return {
         "body": state.ingestion_result.get("body", ""),
         "entities": state.analysis_result.get("entities", []) if state.analysis_result else [],
+        "scenes": state.analysis_result.get("scenes", []) if state.analysis_result else [],
         "images": state.images_list
     }
 
@@ -298,6 +375,7 @@ async def generate_audio(req: AudioRequest):
              raise HTTPException(status_code=500, detail="Audio generation failed. Check server logs.")
         
         print(f"Audio file created: {audio_file}")
+        state.audiobook_path = audio_file # Track for download
         return {"audio_url": f"/api/assets/{filename}"}
     except HTTPException:
         raise
@@ -334,14 +412,26 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
         
     try:
         visuals_dir = os.path.join(UPLOAD_DIR, "visuals")
-        # Clean directory to prevent mixing with old images
-        if os.path.exists(visuals_dir):
-            shutil.rmtree(visuals_dir)
         os.makedirs(visuals_dir, exist_ok=True)
+        
+        # Clean directory but PRESERVE COVERS
+        # We only want to remove old scene/entity images to prevent mixing
+        for filename in os.listdir(visuals_dir):
+            if filename.startswith("cover_"):
+                continue # Skip covers
+            
+            file_path = os.path.join(visuals_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete {file_path}. Reason: {e}")
         
         # Get title - prefer filename if title is generic
         title = state.ingestion_result.get("title", "Unknown") if state.ingestion_result else "Book"
-        if title in ["Unknown", "Extracted PDF", "Book"] and state.ingestion_result.get("filename"):
+        if title in ["Unknown", "Extracted PDF", "Book"] and state.ingestion_result and state.ingestion_result.get("filename"):
              title = state.ingestion_result.get("filename")
         
         # Prepare list of expected images so frontend knows what to wait for
@@ -357,39 +447,59 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
         for i in range(len(scenes)):
             expected_images.append(f"image_01_scene_{i+1:02d}.jpg")
             
-        # 3. Entities (Top 3)
-        entities = state.analysis_result.get("entities", [])
-        top_entities = entities[:3]
-        for i, entity in enumerate(top_entities):
-            if isinstance(entity, list) and len(entity) >= 1:
-                name = entity[0]
-            elif isinstance(entity, tuple) and len(entity) >= 1:
-                name = entity[0]
-            else:
-                name = str(entity)
-            safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
-            expected_images.append(f"image_02_entity_{safe_name}.jpg")
+        # 3. Entities (Top 3) - Skipped for Visuals panel
+        # entities = state.analysis_result.get("entities", [])
+        # top_entities = entities[:3]
+        # for i, entity in enumerate(top_entities):
+        #     if isinstance(entity, list) and len(entity) >= 1:
+        #         name = entity[0]
+        #     elif isinstance(entity, tuple) and len(entity) >= 1:
+        #         name = entity[0]
+        #     else:
+        #         name = str(entity)
+        #     safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+        #     expected_images.append(f"image_02_entity_{safe_name}.jpg")
             
         # Update state with expected paths (relative)
         state.images_list = [os.path.join(visuals_dir, img) for img in expected_images]
         
+        print("="*50)
+        print(f"🎨 VISUALS GENERATION REQUESTED")
+        print(f"Style: {req.style}")
+        print(f"Expected Images: {len(expected_images)}")
+        print("="*50)
+        
         # Start background generation
-        background_tasks.add_task(generate_images, state.analysis_result, visuals_dir, style=req.style, seed=req.seed, title=title)
+        background_tasks.add_task(
+            generate_images, 
+            state.analysis_result, 
+            visuals_dir, 
+            style=req.style, 
+            seed=req.seed, 
+            title=title, 
+            include_entities=False
+        )
         
         # Update thumbnail in library (use first scene if available, else title)
+        # Update thumbnail in library (use first scene if available, else title)
         if state.book_id:
-            thumbnail_filename = None
-            scenes = state.analysis_result.get("scenes", [])
-            if len(scenes) > 0:
-                 thumbnail_filename = f"image_01_scene_01.jpg"
-            elif len(expected_images) > 0:
-                 thumbnail_filename = expected_images[0]
+            # Check if we already have a high-quality cover
+            current_book = library_manager.get_book(state.book_id)
+            has_cover = current_book and (current_book.get("thumbnail") or "").startswith("visuals/cover_")
             
-            if thumbnail_filename:
-                # Store relative path from upload dir (which is what library expects/serves via assets)
-                # Actually library stores metadata. Frontend constructs URL.
-                # Let's store "visuals/filename.jpg"
-                library_manager.update_book_thumbnail(state.book_id, f"visuals/{thumbnail_filename}")
+            if not has_cover:
+                thumbnail_filename = None
+                scenes = state.analysis_result.get("scenes", [])
+                if len(scenes) > 0:
+                     thumbnail_filename = f"image_01_scene_01.jpg"
+                elif len(expected_images) > 0:
+                     thumbnail_filename = expected_images[0]
+                
+                if thumbnail_filename:
+                    # Store relative path from upload dir (which is what library expects/serves via assets)
+                    # Actually library stores metadata. Frontend constructs URL.
+                    # Let's store "visuals/filename.jpg"
+                    library_manager.update_book_thumbnail(state.book_id, f"visuals/{thumbnail_filename}")
 
         # Return relative paths for frontend immediately
         image_urls = [f"/api/assets/visuals/{img}" for img in expected_images]
@@ -400,6 +510,55 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
         print(f"Visuals generation error: {type(e).__name__} - {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Failed to generate visuals. Please try again.")
+
+@app.post("/api/generate/poster")
+async def generate_poster(background_tasks: BackgroundTasks):
+    if not state.book_id:
+        raise HTTPException(status_code=400, detail="No book loaded")
+    
+    try:
+        visuals_dir = os.path.join(UPLOAD_DIR, "visuals")
+        os.makedirs(visuals_dir, exist_ok=True)
+        
+        # Get metadata
+        book = library_manager.get_book(state.book_id)
+        if not book:
+             raise HTTPException(status_code=404, detail="Book not found")
+             
+        title = book.get("title", "Unknown Book")
+        author = book.get("author", "Unknown Author")
+        
+        # Extract context from state if available
+        theme = ""
+        characters = []
+        if state.analysis_result:
+            theme = state.analysis_result.get("summary", "")
+            characters = state.analysis_result.get("entities", [])
+        
+        # Generate in background (or foreground if fast enough, but background is safer)
+        # Since we want to return the URL, we'll await it here for simplicity as it's a single image
+        # If it takes too long, we might need to make it async/background + polling.
+        # Gemini image gen is usually < 10s.
+        
+        poster_path = await generate_poster_with_deapi(title, author, visuals_dir, theme=theme, characters=characters)
+        
+        if poster_path:
+            # Update library thumbnail
+            filename = os.path.basename(poster_path)
+            library_manager.update_book_thumbnail(state.book_id, f"visuals/{filename}")
+            
+            return {
+                "poster_url": f"/api/assets/visuals/{filename}",
+                "message": "Poster generated successfully"
+            }
+        else:
+             raise HTTPException(status_code=500, detail="Failed to generate poster")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Poster generation error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/entity_image/{name}")
 async def get_entity_image(name: str, role: str = "Character", regenerate: bool = False):
@@ -511,6 +670,13 @@ async def generate_podcast_endpoint(background_tasks: BackgroundTasks):
         print("="*50)
         print(f"✅ PODCAST GENERATION COMPLETE: {len(playlist)} segments")
         print("="*50)
+        
+        # Save to library
+        if state.book_id:
+            library_manager.save_podcast(state.book_id, playlist)
+            # Update in-memory state
+            if state.analysis_result:
+                state.analysis_result["podcast"] = playlist
             
         return {"playlist": playlist}
     except HTTPException:
@@ -540,15 +706,196 @@ async def generate_podcast_endpoint(background_tasks: BackgroundTasks):
                 detail=f"Podcast generation failed: {str(e)[:100]}"
             )
 
+async def generate_scene_audios(scenes, output_dir, voice_id, provider):
+    """Helper to generate audio for all scenes sequentially."""
+    for i, scene in enumerate(scenes):
+        try:
+            # Handle both dict and string formats
+            if isinstance(scene, dict):
+                text = f"{scene.get('narrator_intro', '')} {scene.get('excerpt', '')}".strip()
+                if not text:
+                    text = scene.get('description', '') # Fallback
+            else:
+                text = str(scene)
+            
+            filename = f"immersive_scene_{i+1:02d}.mp3"
+            output_path = os.path.join(output_dir, filename)
+            
+            print(f"Generating immersive audio for scene {i+1}...")
+            await generate_audio_service(
+                text, 
+                output_path, 
+                voice_id=voice_id,
+                provider=provider
+            )
+        except Exception as e:
+            print(f"Failed to generate audio for scene {i+1}: {e}")
+
+@app.post("/api/generate/immersive_audio")
+async def generate_immersive_audio(req: ImmersiveAudioRequest, background_tasks: BackgroundTasks):
+    if not state.analysis_result or not state.analysis_result.get("scenes"):
+        raise HTTPException(status_code=400, detail="No scenes available. Analyze book first.")
+        
+    try:
+        immersive_dir = os.path.join(UPLOAD_DIR, "immersive_audio")
+        os.makedirs(immersive_dir, exist_ok=True)
+        
+        scenes = state.analysis_result.get("scenes", [])
+        expected_audio = []
+        
+        for i in range(len(scenes)):
+            filename = f"immersive_scene_{i+1:02d}.mp3"
+            expected_audio.append(f"/api/assets/immersive_audio/{filename}")
+            
+        # Start background generation
+        background_tasks.add_task(
+            generate_scene_audios, 
+            scenes, 
+            immersive_dir, 
+            req.voice_id, 
+            req.provider
+        )
+        
+        # Track expected paths for download (best effort, actual files checked at download time)
+        state.immersive_audio_paths = [os.path.join(immersive_dir, os.path.basename(url)) for url in expected_audio]
+        
+        return {"audio_urls": expected_audio, "status": "generating"}
+    except Exception as e:
+        print(f"Immersive audio error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class VideoRequest(BaseModel):
+    image_filename: str
+    prompt: str = ""
+    duration: int = 5
+
+@app.post("/api/generate/scene_video")
+async def generate_scene_video(req: VideoRequest):
+    """Generate video from a scene image using DepAI"""
+    try:
+        # Find the image file
+        images_dir = os.path.join(OUTPUT_DIR, state.ingestion_result.get("book_id", "latest"), "images")
+        image_path = os.path.join(images_dir, req.image_filename)
+        
+        if not os.path.exists(image_path):
+            raise HTTPException(status_code=404, detail=f"Image not found: {req.image_filename}")
+        
+        # Create videos directory
+        videos_dir = os.path.join(OUTPUT_DIR, state.ingestion_result.get("book_id", "latest"), "videos")
+        os.makedirs(videos_dir, exist_ok=True)
+        
+        # Generate video
+        video_path = await generate_video_with_deapi(
+            image_path=image_path,
+            prompt=req.prompt or "Animate this scene with subtle movements",
+            output_dir=videos_dir,
+            duration=req.duration
+        )
+        
+        if not video_path:
+            raise HTTPException(status_code=500, detail="Video generation failed")
+        
+        # Return the URL to access the video
+        video_filename = os.path.basename(video_path)
+        video_url = f"/api/assets/videos/{video_filename}"
+        
+        return {"video_url": video_url, "status": "complete"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Video generation error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/download_all")
+async def download_all_content():
+    if not state.ingestion_result:
+        raise HTTPException(status_code=400, detail="No book loaded")
+        
+    try:
+        # Create a zip file
+        timestamp = int(time.time())
+        zip_filename = f"book2vision_content_{timestamp}.zip"
+        zip_path = os.path.join(UPLOAD_DIR, zip_filename)
+        
+        files_to_zip = []
+        
+        # 1. Images
+        if state.images_list:
+            files_to_zip.extend(state.images_list)
+            
+        # 2. Entity Images
+        if state.entity_images:
+            files_to_zip.extend(state.entity_images.values())
+            
+        # 3. Audiobook
+        if state.audiobook_path and os.path.exists(state.audiobook_path):
+            files_to_zip.append(state.audiobook_path)
+            
+        # 4. Podcast
+        if state.analysis_result and state.analysis_result.get("podcast"):
+            podcast = state.analysis_result.get("podcast")
+            for seg in podcast:
+                url = seg.get("url", "")
+                if url:
+                    # Extract filename from URL: /api/assets/podcast/filename.mp3
+                    filename = os.path.basename(url)
+                    path = os.path.join(UPLOAD_DIR, "podcast", filename)
+                    if os.path.exists(path):
+                        files_to_zip.append(path)
+                        
+        # 5. Immersive Audio
+        if state.immersive_audio_paths:
+            for path in state.immersive_audio_paths:
+                if os.path.exists(path):
+                    files_to_zip.append(path)
+        
+        # 6. Cover/Poster
+        if state.book_id:
+            book = library_manager.get_book(state.book_id)
+            if book and book.get("thumbnail"):
+                # Thumbnail path is relative "visuals/filename.jpg"
+                thumb_path = os.path.join(UPLOAD_DIR, book["thumbnail"])
+                if os.path.exists(thumb_path):
+                    files_to_zip.append(thumb_path)
+
+        if not files_to_zip:
+            raise HTTPException(status_code=404, detail="No content generated yet")
+            
+        # Deduplicate
+        files_to_zip = list(set(files_to_zip))
+        
+        print(f"📦 Zipping {len(files_to_zip)} files...")
+        
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for file_path in files_to_zip:
+                if os.path.exists(file_path):
+                    # Keep folder structure relative to UPLOAD_DIR
+                    arcname = os.path.relpath(file_path, UPLOAD_DIR)
+                    zipf.write(file_path, arcname)
+                    
+        return FileResponse(zip_path, filename=zip_filename, media_type='application/zip')
+        
+    except Exception as e:
+        print(f"Download error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to create download package")
+
 # Library Endpoints
 
 @app.get("/api/library")
 async def get_library():
     """Get all books in the library."""
-    return {"books": library_manager.get_books()}
+    try:
+        return {"books": library_manager.get_books()}
+    except Exception as e:
+        print(f"❌ Library fetch error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to fetch library")
 
 @app.delete("/api/library/{book_id}")
-async def delete_book(book_id: str):
+async def delete_book(book_id: int):
     """Delete a book from the library."""
     success = library_manager.delete_book(book_id)
     if not success:
@@ -556,7 +903,7 @@ async def delete_book(book_id: str):
     return {"message": "Book deleted successfully"}
 
 @app.post("/api/library/load/{book_id}")
-async def load_book(book_id: str):
+async def load_book(book_id: int):
     """Load a book from the library into active state."""
     state.book_id = book_id
     book = library_manager.get_book(book_id)
@@ -572,32 +919,71 @@ async def load_book(book_id: str):
         raise HTTPException(status_code=404, detail="Book file not found on server")
     
     try:
-        # Re-ingest (fast, mostly reading text)
-        # In a real app, we'd cache the analysis too, but re-analyzing is safer for now
-        ingestion_result = ingest_book(file_path)
-        ingestion_result["filename"] = filename
+        # Try to load from DB first
+        full_text = library_manager.get_book_full_text(book_id)
+        analysis = library_manager.get_analysis(book_id)
         
-        # Update state
-        state.ingestion_result = ingestion_result
-        state.full_text = ingestion_result.get("full_text", "")
-        
-        # Re-analyze
-        # Optimization: We could store analysis in a JSON file alongside the book
-        # For now, let's re-run analysis to ensure fresh state
-        print(f"Reloading book: {book['title']}...")
-        analysis = semantic_analysis(state.full_text)
-        state.analysis_result = analysis
+        if full_text and analysis:
+            print(f"✅ Loaded book from DB: {book['title']}")
+            state.full_text = full_text
+            state.analysis_result = analysis
+            state.ingestion_result = {
+                "title": book["title"],
+                "author": book["author"],
+                "body": full_text, # Approximation
+                "full_text": full_text,
+                "filename": filename
+            }
+        else:
+            print(f"⚠️ DB miss. Re-ingesting book: {book['title']}...")
+            # Re-ingest (fast, mostly reading text)
+            ingestion_result = await ingest_book(file_path)
+            ingestion_result["filename"] = filename
+            
+            # Update state
+            state.ingestion_result = ingestion_result
+            state.full_text = ingestion_result.get("full_text", "")
+            
+            # Re-analyze
+            print(f"Re-analyzing book: {book['title']}...")
+            analysis = await semantic_analysis(state.full_text)
+            state.analysis_result = analysis
+            
+            # Save back to DB for next time
+            library_manager.add_book(book, full_text=state.full_text) # Update text
+            library_manager.save_analysis(book_id, analysis)
         
         return {
             "message": "Book loaded successfully",
             "filename": filename,
-            "analysis": analysis,
+            "analysis": state.analysis_result,
             "title": book["title"],
             "author": book["author"]
         }
     except Exception as e:
         print(f"Error loading book: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load book: {str(e)}")
+
+# Serve video assets from OUTPUT_DIR
+@app.get("/api/assets/videos/{filename}")
+async def serve_video(filename: str):
+    """Serve video files from the latest book's videos directory"""
+    try:
+        if not state.ingestion_result:
+            raise HTTPException(status_code=404, detail="No book loaded")
+        
+        book_id = state.ingestion_result.get("book_id", "latest")
+        video_path = os.path.join(OUTPUT_DIR, book_id, "videos", filename)
+        
+        if not os.path.exists(video_path):
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        return FileResponse(video_path, media_type="video/mp4")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Video serve error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Serve Static Assets (Uploaded/Generated)
 app.mount("/api/assets", StaticFiles(directory=UPLOAD_DIR), name="assets")

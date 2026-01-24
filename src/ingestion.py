@@ -5,55 +5,64 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 import pytesseract
 from PIL import Image
+import asyncio
+from google import genai
+from src.config import GEMINI_API_KEY
+import time
+import json
+from functools import partial
 
-def ingest_book(file_path):
+async def ingest_book(file_path):
     """
-    Detects file type and extracts text.
+    Detects file type and extracts text (Async).
     """
     ext = os.path.splitext(file_path)[1].lower()
     
     if ext == '.pdf':
-        return extract_text_from_pdf(file_path)
+        return await extract_text_from_pdf(file_path)
     elif ext == '.txt':
-        return extract_text_from_txt(file_path)
+        return await extract_text_from_txt(file_path)
     elif ext == '.epub':
-        return extract_text_from_epub(file_path)
+        return await extract_text_from_epub(file_path)
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
-import google.generativeai as genai
-from src.config import GEMINI_API_KEY
-import time
-import json
-
-def extract_text_from_pdf(file_path):
+async def extract_text_from_pdf(file_path):
     text = ""
     try:
-        with open(file_path, 'rb') as f:
-            reader = PyPDF2.PdfReader(f)
-            for page in reader.pages:
-                extracted = page.extract_text()
-                if extracted:
-                    text += extracted + "\n"
+        # Run CPU-bound PDF parsing in a separate thread
+        def parse_pdf():
+            local_text = ""
+            with open(file_path, 'rb') as f:
+                reader = PyPDF2.PdfReader(f)
+                for page in reader.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        local_text += extracted + "\n"
+            return local_text
+
+        text = await asyncio.to_thread(parse_pdf)
+            
     except Exception as e:
         print(f"Error reading PDF with PyPDF2: {e}")
     
     # Fallback to Gemini if text is empty or very short (likely scanned)
     if len(text.strip()) < 100:
         print("PDF seems scanned or empty. Using Gemini 1.5 Flash to read it...")
-        return extract_text_with_gemini(file_path)
+        return await extract_text_with_gemini(file_path)
         
-    # Return dict for consistency if local extraction worked (though less likely to be perfect layout analysis)
+    # Return dict for consistency if local extraction worked
     return {"title": "Extracted PDF", "body": text, "full_text": text}
 
-def extract_text_with_gemini(file_path):
+async def extract_text_with_gemini(file_path):
     """
-    Uploads file to Gemini and extracts text.
+    Uploads file to Gemini and extracts text (Async).
     """
     # Fetch dynamically to handle UI updates
     api_key = os.getenv("GEMINI_API_KEY")
     
     if not api_key:
+        print("⚠️ GEMINI_API_KEY not found. Skipping Gemini extraction.")
         return {"title": "Error", "body": "GEMINI_API_KEY not found.", "full_text": "Error: GEMINI_API_KEY not found."}
 
     try:
@@ -61,14 +70,22 @@ def extract_text_with_gemini(file_path):
         from src.gemini_utils import get_gemini_model
         
         print(f"Uploading {file_path} to Gemini...")
-        genai.configure(api_key=api_key)
-        sample_file = genai.upload_file(path=file_path, display_name="Book Content")
+        # Client creation is fast/local
+        client, model_name = get_gemini_model("vision", api_key=api_key)
         
-        # Wait for processing
+        # Upload file (Network I/O) -> Run in thread
+        sample_file = await asyncio.to_thread(
+            client.files.upload, path=file_path, config={"display_name": "Book Content"}
+        )
+        
+        # Wait for processing (Non-blocking polling)
         while sample_file.state.name == "PROCESSING":
             print("Processing file...")
-            time.sleep(2)
-            sample_file = genai.get_file(sample_file.name)
+            await asyncio.sleep(2) # Non-blocking sleep
+            # Check status (Network I/O) -> Run in thread
+            sample_file = await asyncio.to_thread(
+                client.files.get, name=sample_file.name
+            )
             
         if sample_file.state.name == "FAILED":
             return {"title": "Error", "body": "Gemini failed to process file.", "full_text": "Error: Gemini processing failed."}
@@ -118,31 +135,37 @@ def extract_text_with_gemini(file_path):
         }
         """
 
-        # Helper for robust generation with retries
-        def generate_with_retry(model, inputs, config=None, retries=3):
+        # Helper for robust generation with retries (Async wrapper)
+        async def generate_with_retry(client, model_name, inputs, config=None, retries=3):
             from google.api_core import exceptions
             for attempt in range(retries):
                 try:
-                    return model.generate_content(inputs, generation_config=config)
+                    # Run blocking generation in thread
+                    return await asyncio.to_thread(
+                        client.models.generate_content,
+                        model=model_name,
+                        contents=inputs,
+                        config=config
+                    )
                 except exceptions.ResourceExhausted:
                     wait = (2 ** attempt) * 5 + 5 # 10s, 15s, 25s...
                     print(f"⚠️ Quota exceeded (429). Retrying in {wait}s...")
-                    time.sleep(wait)
+                    await asyncio.sleep(wait)
                 except Exception as e:
                     if "429" in str(e): # Fallback if exception type isn't caught
                         wait = (2 ** attempt) * 5 + 5
                         print(f"⚠️ Quota exceeded (429). Retrying in {wait}s...")
-                        time.sleep(wait)
+                        await asyncio.sleep(wait)
                     else:
                         raise e
             raise Exception("Max retries exceeded for Gemini API.")
 
         try:
-            model = get_gemini_model("vision", api_key=api_key)
-            print(f"Using model: {getattr(model, 'model_name', 'unknown')}")
+            print(f"Using model: {model_name}")
             
-            response = generate_with_retry(
-                model, 
+            response = await generate_with_retry(
+                client,
+                model_name,
                 [sample_file, prompt_json],
                 config={"response_mime_type": "application/json"}
             )
@@ -176,8 +199,8 @@ def extract_text_with_gemini(file_path):
 
         try:
             # Reuse model or get new one
-            model = get_gemini_model("vision", api_key=api_key)
-            response = generate_with_retry(model, [sample_file, prompt_text])
+            # client, model_name already defined
+            response = await generate_with_retry(client, model_name, [sample_file, prompt_text])
             
             text = response.text
             lines = text.split('\n')
@@ -197,12 +220,15 @@ def extract_text_with_gemini(file_path):
             # Use 'helloworld' key for demo, or user key if available
             ocr_api_key = "helloworld" 
             
-            with open(file_path, 'rb') as f:
-                response = requests.post(
-                    'https://api.ocr.space/parse/image',
-                    files={file_path: f},
-                    data={'apikey': ocr_api_key, 'language': 'eng', 'isOverlayRequired': False}
-                )
+            def call_ocr_space():
+                with open(file_path, 'rb') as f:
+                    return requests.post(
+                        'https://api.ocr.space/parse/image',
+                        files={file_path: f},
+                        data={'apikey': ocr_api_key, 'language': 'eng', 'isOverlayRequired': False}
+                    )
+            
+            response = await asyncio.to_thread(call_ocr_space)
             
             result = response.json()
             if result.get('IsErroredOnProcessing') == False:
@@ -227,24 +253,29 @@ def extract_text_with_gemini(file_path):
     except Exception as e:
         return {"title": "Error", "body": f"Gemini Extraction Failed: {e}", "full_text": f"Error: {e}"}
 
-def extract_text_from_txt(file_path):
-    with open(file_path, 'r', encoding='utf-8') as f:
-        text = f.read()
-        return {"title": "Text File", "body": text, "full_text": text}
+async def extract_text_from_txt(file_path):
+    def read_txt():
+        with open(file_path, 'r', encoding='utf-8') as f:
+            text = f.read()
+            return {"title": "Text File", "body": text, "full_text": text}
+    return await asyncio.to_thread(read_txt)
 
-def extract_text_from_epub(file_path):
-    try:
-        book = epub.read_epub(file_path)
-        text = []
-        for item in book.get_items():
-            if item.get_type() == ebooklib.ITEM_DOCUMENT:
-                soup = BeautifulSoup(item.get_content(), 'html.parser')
-                text.append(soup.get_text())
-        full_text = "\n".join(text)
-        return {"title": "EPUB Book", "body": full_text, "full_text": full_text}
-    except Exception as e:
-        print(f"Error reading EPUB: {e}")
-        return {"title": "Error", "body": "", "full_text": ""}
+async def extract_text_from_epub(file_path):
+    def read_epub():
+        try:
+            book = epub.read_epub(file_path)
+            text = []
+            for item in book.get_items():
+                if item.get_type() == ebooklib.ITEM_DOCUMENT:
+                    soup = BeautifulSoup(item.get_content(), 'html.parser')
+                    text.append(soup.get_text())
+            full_text = "\n".join(text)
+            return {"title": "EPUB Book", "body": full_text, "full_text": full_text}
+        except Exception as e:
+            print(f"Error reading EPUB: {e}")
+            return {"title": "Error", "body": "", "full_text": ""}
+            
+    return await asyncio.to_thread(read_epub)
 
 def clean_format(raw_text):
     # Basic cleaning

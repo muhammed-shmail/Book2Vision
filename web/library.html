@@ -11,7 +11,352 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
+    <style>
+        /* Library-specific styles */
+        .library-header {
+            margin-bottom: 3rem;
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .library-header h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.5rem;
+            margin: 0;
+        }
+
+        .library-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .glass-input {
+            padding: 0.75rem 1.25rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-sm);
+            color: var(--text-main);
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        #library-search {
+            min-width: 250px;
+        }
+
+        /* Enhanced Book Cards */
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 2.5rem;
+            margin-top: 2rem;
+        }
+
+        .book-card {
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 0;
+            overflow: visible;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            position: relative;
+        }
+
+        .book-card:hover {
+            transform: translateY(-8px);
+        }
+
+        .book-thumbnail {
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            background: linear-gradient(135deg, rgba(127, 90, 240, 0.1), rgba(44, 182, 125, 0.1));
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+
+        .book-card:hover .book-thumbnail {
+            box-shadow: 0 20px 40px rgba(127, 90, 240, 0.25);
+            border-color: rgba(127, 90, 240, 0.4);
+        }
+
+        .book-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .book-card:hover .book-thumbnail img {
+            transform: scale(1.05);
+        }
+
+        .book-thumbnail.no-image {
+            background: linear-gradient(135deg, #2a2a3e 0%, #1a1a2e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .poster-placeholder-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.5rem;
+            color: rgba(255, 255, 255, 0.2);
+            line-height: 1.2;
+        }
+
+        .book-content {
+            padding: 1.25rem 0.5rem 0.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .book-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+            color: var(--text-main);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.3;
+        }
+
+        .book-author {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+        }
+
+        .book-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 0.8rem;
+        }
+
+        .btn-open-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .btn-open-link:hover {
+            color: var(--primary-hover);
+            transform: translateX(3px);
+        }
+
+        /* Hover Actions Overlay */
+        .book-actions-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            opacity: 0;
+            transition: var(--transition);
+            border-radius: var(--radius-md);
+        }
+
+        .book-thumbnail:hover .book-actions-overlay {
+            opacity: 1;
+        }
+
+        .btn-action-round {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: var(--transition-bounce);
+        }
+
+        .btn-action-round:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .btn-generate-poster {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: var(--radius-round);
+            padding: 0.4rem 0.8rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            z-index: 2;
+        }
+
+        .btn-generate-poster:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .book-meta {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--radius-round);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .characters-preview {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .character-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(127, 90, 240, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .book-actions {
+            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn-open-book {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #7F5AF0 0%, #6246EA 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-open-book:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(127, 90, 240, 0.4);
+        }
+
+        .btn-delete {
+            padding: 0.75rem;
+            background: rgba(239, 69, 101, 0.1);
+            border: 1px solid rgba(239, 69, 101, 0.2);
+            color: var(--danger);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-delete:hover {
+            background: rgba(239, 69, 101, 0.2);
+        }
+
+        .library-empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .icon-large {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .library-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .library-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
 </head>
 
 <body>
@@ -65,7 +410,16 @@
         </section>
     </main>
 
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=12"></script>
+    <script>
+        // Explicit library initialization
+        console.log('Library page loaded, calling fetchLibrary()');
+        if (typeof fetchLibrary === 'function') {
+            fetchLibrary();
+        } else {
+            console.error('fetchLibrary function not found!');
+        }
+    </script>
 </body>
 
 </html>

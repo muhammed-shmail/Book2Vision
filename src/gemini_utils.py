@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import os
 import logging
 import time
@@ -13,14 +13,14 @@ CACHE_TTL = 3600  # Cache for 1 hour
 
 def get_gemini_model(capability="text", api_key=None):
     """
-    Returns a valid GenerativeModel instance based on capability and availability.
+    Returns a configured genai.Client and the selected model name.
     
     Args:
         capability (str): "text", "vision", or "flash" (fast).
         api_key (str): Optional API key. If not provided, looks in env.
         
     Returns:
-        genai.GenerativeModel: A configured model instance.
+        tuple: (genai.Client, str) - The client and the selected model name.
     """
     if not api_key:
         api_key = os.getenv("GEMINI_API_KEY")
@@ -29,7 +29,7 @@ def get_gemini_model(capability="text", api_key=None):
         logger.error("GEMINI_API_KEY not found.")
         raise ValueError("GEMINI_API_KEY not found.")
 
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     
     # Preferred models by capability (Updated with older models for fallback)
     preferences = {
@@ -47,11 +47,16 @@ def get_gemini_model(capability="text", api_key=None):
         available_models = []
         try:
             print("--- Checking Available Gemini Models (caching) ---")
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    clean_name = m.name.replace("models/", "")
-                    available_models.append(clean_name)
-                    print(f"Found supported model: {clean_name}")
+            # New SDK model listing
+            for m in client.models.list():
+                # The new SDK returns model objects with .name like "models/gemini-1.5-flash"
+                # We want to check if it supports generateContent, but the new SDK object might differ.
+                # Assuming all listed models are usable or we filter by name.
+                # The new SDK model object has 'supported_generation_methods' usually.
+                # Let's just grab the name and strip "models/"
+                clean_name = m.name.replace("models/", "")
+                available_models.append(clean_name)
+                print(f"Found model: {clean_name}")
             print("----------------------------------------")
             _model_cache["models"] = available_models
             _model_cache["timestamp"] = current_time
@@ -91,4 +96,4 @@ def get_gemini_model(capability="text", api_key=None):
     else:
         logger.info(f"Selected Gemini model: {selected_model_name}")
 
-    return genai.GenerativeModel(selected_model_name)
+    return client, selected_model_name

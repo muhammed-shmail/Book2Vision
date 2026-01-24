@@ -1,12 +1,12 @@
 import asyncio
 import requests
 
-import google.generativeai as genai
+from google import genai
 from src.config import ELEVENLABS_API_KEY, GEMINI_API_KEY, DEEPGRAM_API_KEY
 from src.prompts import SSML_PROMPT
 
 # Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+# genai.configure(api_key=GEMINI_API_KEY) # Not needed with new SDK client
 
 async def generate_ssml(text):
     """
@@ -14,8 +14,8 @@ async def generate_ssml(text):
     """
     print("Generating SSML with Gemini...")
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(SSML_PROMPT.format(text=text))
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(model='gemini-2.0-flash', contents=SSML_PROMPT.format(text=text))
         ssml_text = response.text
         
         # Basic cleanup to ensure it's just the SSML if the model adds markdown
@@ -29,28 +29,51 @@ async def generate_ssml(text):
         print(f"Error generating SSML: {e}")
         return text # Fallback to original text
 
-<<<<<<< HEAD
-async def generate_audio_deepgram(text, output_path):
+def format_text_for_deepgram(text: str) -> str:
     """
-    Generates audio using Deepgram API.
+    Format text according to Deepgram best practices for natural speech.
+    Based on: https://developers.deepgram.com/docs/improving-aura-2-formatting
     """
-    print(f"Generating audio using Deepgram...")
-    if not DEEPGRAM_API_KEY:
-        print("ERROR: DEEPGRAM_API_KEY is missing!")
-        raise Exception("DEEPGRAM_API_KEY is missing!")
-        
-    url = "https://api.deepgram.com/v1/speak?model=aura-asteria-en"
-=======
+    import re
+    
+    # Preserve emotional markers like [laughs], [gasps], [sighs]
+    # We'll temporarily replace them to avoid punctuation changes
+    markers = re.findall(r'\[\w+\]', text)
+    for i, marker in enumerate(markers):
+        text = text.replace(marker, f"__MARKER_{i}__", 1)
+    
+    # Add comma before direct address names (e.g., "Hello Maria" -> "Hello, Maria")
+    # Common names in podcast context
+    common_names = ['Jax', 'Emma', 'Maria', 'John', 'Sarah']
+    for name in common_names:
+        text = re.sub(rf'\b(Hello|Hey|Hi|Wait|Listen)\s+{name}\b', rf'\1, {name}', text, flags=re.IGNORECASE)
+    
+    # Fix missing commas in common conversational patterns
+    text = re.sub(r'\b(you know)\s+([A-Z])', r'\1, \2', text)  # "you know I" -> "you know, I"
+    text = re.sub(r'\b(I mean)\s+([A-Z])', r'\1, \2', text)  # "I mean it" -> "I mean, it"
+    text = re.sub(r'\b(honestly)\s+([A-Z])', r'\1, \2', text, flags=re.IGNORECASE)  # "honestly I" -> "honestly, I"
+    text = re.sub(r'\b(like)\s+([A-Z])', r'\1, \2', text)  # "like I" -> "like, I" (only if followed by capital)
+    
+    # Ensure space before punctuation where needed
+    text = re.sub(r'(\w)(\?|!)', r'\1 \2', text)  # Add space before ? and ! if missing
+    text = re.sub(r'\s{2,}', ' ', text)  # Remove double spaces
+    
+    # Restore emotional markers
+    for i, marker in enumerate(markers):
+        text = text.replace(f"__MARKER_{i}__", marker)
+    
+    return text.strip()
+
 def get_deepgram_voice(voice_id: str) -> str:
     """
     Map ElevenLabs/generic voice IDs to Deepgram Aura-2 voices.
-    Uses best-quality Aura-2 models.
+    Uses Arcas (masculine) and Andromeda (feminine) - optimized for natural podcast conversations.
     """
     voice_map = {
-        "pNInz6obpgDQGcFmaJgB": "aura-2-odysseus-en",  # Adam -> Odysseus (Masculine, clear for Jax)
-        "21m00Tcm4TlvDq8ikWAM": "aura-2-luna-en",      # Rachel -> Luna (Feminine, friendly for Emma)
+        "pNInz6obpgDQGcFmaJgB": "aura-2-arcas-en",      # Adam -> Arcas (Masculine, natural, smooth, balanced for podcast hosting)
+        "21m00Tcm4TlvDq8ikWAM": "aura-2-andromeda-en",  # Rachel -> Andromeda (Feminine, casual, expressive, warm, engaging)
     }
-    return voice_map.get(voice_id, "aura-2-odysseus-en")
+    return voice_map.get(voice_id, "aura-2-arcas-en")
 
 async def generate_audio_deepgram(text, output_path, voice_id="21m00Tcm4TlvDq8ikWAM"):
     """
@@ -66,15 +89,17 @@ async def generate_audio_deepgram(text, output_path, voice_id="21m00Tcm4TlvDq8ik
     print(f"Generating audio using Deepgram Aura-2 ({deepgram_voice})...")
     
     url = f"https://api.deepgram.com/v1/speak?model={deepgram_voice}"
->>>>>>> temp_fix
     
     headers = {
         "Authorization": f"Token {DEEPGRAM_API_KEY}",
         "Content-Type": "application/json"
     }
     
+    # Format text for natural speech using Deepgram best practices
+    formatted_text = format_text_for_deepgram(text)
+    
     payload = {
-        "text": text
+        "text": formatted_text
     }
     
     try:
@@ -90,39 +115,6 @@ async def generate_audio_deepgram(text, output_path, voice_id="21m00Tcm4TlvDq8ik
                 return output_path
             
             result = await asyncio.to_thread(write_file)
-<<<<<<< HEAD
-            print(f"Deepgram audio saved to {result}")
-            return result
-        else:
-            error_msg = f"Deepgram Error: {response.status_code} - {response.text}"
-            print(error_msg)
-            raise Exception(error_msg)
-    except Exception as e:
-        print(f"Deepgram failed: {e}")
-        raise e
-
-async def generate_audio(text, output_path="audiobook.mp3", voice_id="21m00Tcm4TlvDq8ikWAM", stability=0.5, similarity_boost=0.75, style=0.0, use_speaker_boost=True, provider="elevenlabs"):
-    """
-    Generates audio using the specified provider.
-    """
-    print(f"Generating audio with provider: {provider}")
-    
-    # Check for keys and fallback
-    if provider == "deepgram" and not DEEPGRAM_API_KEY:
-        print("Deepgram key missing. Falling back to Inbuilt (Edge TTS).")
-        provider = "inbuilt"
-    elif provider == "elevenlabs" and not ELEVENLABS_API_KEY:
-        print("ElevenLabs key missing. Falling back to Inbuilt (Edge TTS).")
-        provider = "inbuilt"
-    
-    if provider == "deepgram":
-        return await generate_audio_deepgram(text, output_path)
-    elif provider == "inbuilt":
-        return await generate_audio_edge(text, output_path)
-    else:
-        # Default to ElevenLabs
-        return await generate_audio_elevenlabs(text, output_path, voice_id, stability, similarity_boost, style, use_speaker_boost)
-=======
             print(f"✅ Deepgram audio saved: {result}")
             return result
         else:
@@ -167,7 +159,6 @@ async def generate_audio(text, output_path="audiobook.mp3", voice_id="21m00Tcm4T
     else:
         print(f"⚠️  Unknown provider '{provider}'. Using Edge TTS.")
         return await generate_audio_edge(text, output_path, voice_id, rate=speaking_rate)
->>>>>>> temp_fix
 
 async def generate_audio_elevenlabs(text, output_path, voice_id, stability, similarity_boost, style, use_speaker_boost):
     """
