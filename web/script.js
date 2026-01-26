@@ -47,6 +47,8 @@ let isPlaying = false;
 let audioDuration = 0;
 let isTogglingAudio = false;
 let visualsGenerated = false;
+let currentImageIndex = 0;
+let totalImages = 0;
 
 // Default Settings
 const DEFAULT_SETTINGS = {
@@ -259,7 +261,7 @@ function loadDashboard(data, filename) {
     bookAuthor.textContent = data.author || "Unknown Author";
 
     // Store context
-    currentStoryText = data.analysis.summary || "";
+    currentStoryText = "";
 
     // Render Entities
     renderEntities(data.analysis.entities);
@@ -271,8 +273,8 @@ function loadDashboard(data, filename) {
     // Fetch full story text (background)
     fetchStoryContent();
 
-    // Inject Immersive Mode Button
-    injectImmersiveButton();
+    // Inject Immersive Mode Button - REMOVED
+    // injectImmersiveButton();
 
     // Check for existing podcast
     if (data.analysis.podcast && data.analysis.podcast.length > 0) {
@@ -293,7 +295,7 @@ async function fetchStoryContent() {
             const data = await res.json();
             currentStoryText = data.body; // Update with full text for better audio/QA
         } catch (e) {
-            console.warn("Failed to fetch full story text, using summary.");
+            console.warn("Failed to fetch full story text.");
         }
     }
 }
@@ -526,6 +528,7 @@ async function generateVisuals(styleOverride = null) {
         const data = await res.json();
 
         // Immediate feedback: Inject placeholders
+        console.log("✅ Frontend received images:", data.images);
         injectImages(data.images, true);
         visualsGenerated = true;
         showToast("Generation started! Images will appear one by one.", "success");
@@ -542,6 +545,7 @@ function injectImages(images, isAsync = false) {
     imageDisplay.innerHTML = '';
 
     if (images && images.length > 0) {
+        console.log(`💉 Injecting ${images.length} images into carousel`);
         images.forEach((imgUrl, index) => {
             const wrapper = document.createElement('div');
             wrapper.className = 'image-wrapper';
@@ -610,7 +614,90 @@ function pollForImage(imgElement, url, spinner, attempts = 0) {
     };
     // Add cache buster to check if file exists on server yet
     img.src = `${url}?t=${Date.now()}`;
+    // Add cache buster to check if file exists on server yet
+    img.src = `${url}?t=${Date.now()}`;
 }
+
+// --- Carousel Logic ---
+
+function updateCarousel() {
+    const display = document.getElementById('image-display');
+    const images = display.getElementsByClassName('image-wrapper');
+    totalImages = images.length;
+    const indicatorsContainer = document.getElementById('carousel-indicators');
+    const counter = document.getElementById('carousel-counter');
+
+    console.log(`🎠 Updating Carousel: ${totalImages} images, Index: ${currentImageIndex}`);
+
+    if (totalImages === 0) {
+        if (indicatorsContainer) indicatorsContainer.innerHTML = '';
+        if (counter) counter.textContent = "0/0";
+        return;
+    }
+
+    // Loop
+    if (currentImageIndex >= totalImages) currentImageIndex = 0;
+    if (currentImageIndex < 0) currentImageIndex = totalImages - 1;
+
+    // Update Images
+    Array.from(images).forEach((img, index) => {
+        if (index === currentImageIndex) {
+            img.classList.add('active');
+        } else {
+            img.classList.remove('active');
+        }
+    });
+
+    // Update Indicators
+    if (indicatorsContainer) {
+        // Rebuild if count mismatch
+        if (indicatorsContainer.children.length !== totalImages) {
+            indicatorsContainer.innerHTML = '';
+            for (let i = 0; i < totalImages; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'indicator';
+                dot.onclick = () => {
+                    currentImageIndex = i;
+                    updateCarousel();
+                };
+                indicatorsContainer.appendChild(dot);
+            }
+        }
+
+        // Set active
+        Array.from(indicatorsContainer.children).forEach((dot, index) => {
+            if (index === currentImageIndex) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
+    }
+
+    // Update Counter
+    if (counter) {
+        counter.textContent = `${currentImageIndex + 1}/${totalImages}`;
+    }
+}
+
+function nextImage() {
+    if (totalImages > 0) {
+        currentImageIndex++;
+        updateCarousel();
+    }
+}
+
+function prevImage() {
+    if (totalImages > 0) {
+        currentImageIndex--;
+        updateCarousel();
+    }
+}
+
+// Override injectImages to init carousel
+const originalInjectImages = injectImages;
+injectImages = function (images, isAsync = false) {
+    originalInjectImages(images, isAsync);
+    currentImageIndex = 0;
+    updateCarousel();
+};
 
 // --- Podcast ---
 
@@ -1169,19 +1256,7 @@ function typeWriter(text, element, i = 0) {
 }
 
 function injectImmersiveButton() {
-    const podcastBtn = document.getElementById('btn-podcast');
-    if (podcastBtn && !document.getElementById('btn-immersive')) {
-        const immersiveBtn = document.createElement('button');
-        immersiveBtn.id = 'btn-immersive';
-        immersiveBtn.className = 'btn-sm btn-immersive';
-        immersiveBtn.onclick = () => startImmersiveMode();
-        immersiveBtn.innerHTML = '<span class="icon" aria-hidden="true">✨</span> Immersive Mode';
-        immersiveBtn.style.opacity = '1';
-        immersiveBtn.style.cursor = 'pointer';
-        // Insert after podcast button
-        podcastBtn.parentNode.insertBefore(immersiveBtn, podcastBtn.nextSibling);
-        immersiveBtn.style.marginLeft = '0.5rem';
-    }
+    // Removed as per user request
 }
 window.startImmersiveMode = startImmersiveMode;
 window.toggleImmersivePlay = toggleImmersivePlay;
@@ -1478,3 +1553,168 @@ window.retryImage = function (url, imgId, spinner) {
 };
 
 init();
+
+
+
+
+// ============================================
+// CHARACTER PORTRAITS
+// ============================================
+
+async function generateCharacterPortraits() {
+    const btn = document.getElementById('btn-portraits');
+    if (!btn) return;
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="icon">⏳</span> Generating...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/generate/character-portraits`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                style: document.getElementById('style-select')?.value || 'anime',
+                genre: 'fantasy'
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Portrait generation failed");
+        }
+
+        const data = await res.json();
+        showToast(`Generating ${data.count} character portraits...`, "success");
+
+        // Poll for portraits and update entity cards
+        if (data.portraits && data.portraits.length > 0) {
+            data.portraits.forEach((url, index) => {
+                pollForPortrait(url, index);
+            });
+        }
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+function pollForPortrait(url, index, attempts = 0) {
+    const maxAttempts = 20;
+    const interval = 3000;
+
+    const img = new Image();
+    img.onload = () => {
+        // Find matching entity card and update
+        const entityCards = document.querySelectorAll('.entity-card');
+        if (entityCards[index]) {
+            const avatar = entityCards[index].querySelector('.entity-avatar');
+            if (avatar) {
+                avatar.src = url + '?t=' + Date.now();
+                avatar.classList.add('portrait-loaded');
+            }
+        }
+    };
+    img.onerror = () => {
+        if (attempts < maxAttempts) {
+            setTimeout(() => pollForPortrait(url, index, attempts + 1), interval);
+        }
+    };
+    img.src = url + '?t=' + Date.now();
+}
+
+async function viewCharacterSheet(name) {
+    showToast(`Generating character sheet for ${name}...`, "info");
+
+    try {
+        const res = await fetch(`${API_BASE}/character/${encodeURIComponent(name)}/sheet`);
+        const data = await res.json();
+
+        if (data.sheet_url) {
+            // Open in modal or new tab
+            window.open(data.sheet_url, '_blank');
+        } else {
+            throw new Error("Sheet generation failed");
+        }
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+// Make functions globally available
+window.generateCharacterPortraits = generateCharacterPortraits;
+window.viewCharacterSheet = viewCharacterSheet;
+
+
+
+// ============================================================================
+// AUDIOBOOK SUBTITLES FEATURE
+// ============================================================================
+
+let subtitleText = '';
+let subtitleWords = [];
+let subtitleIndex = 0;
+let subtitleContainer = null;
+
+function initSubtitles(text) {
+    subtitleText = text;
+    subtitleWords = text.split(/\s+/);
+    subtitleIndex = 0;
+
+    // Create subtitle container if it doesn't exist
+    subtitleContainer = document.getElementById('subtitle-display');
+    if (!subtitleContainer) {
+        subtitleContainer = document.createElement('div');
+        subtitleContainer.id = 'subtitle-display';
+        subtitleContainer.className = 'subtitle-display';
+
+        // Insert after audio player
+        const audioPlayer = document.querySelector('.audio-player-ui');
+        if (audioPlayer) {
+            audioPlayer.appendChild(subtitleContainer);
+        }
+    }
+
+    subtitleContainer.innerHTML = '<span class="subtitle-text">Click play to see subtitles...</span>';
+    subtitleContainer.style.display = 'block';
+}
+
+function updateSubtitles(audioProgress, audioDuration) {
+    if (!subtitleContainer || !subtitleWords.length) return;
+
+    // Calculate which word we should be at based on progress
+    const progress = audioProgress / audioDuration;
+    const targetIndex = Math.floor(progress * subtitleWords.length);
+
+    // Show a window of words around the current position
+    const windowSize = 12;
+    const start = Math.max(0, targetIndex - Math.floor(windowSize / 2));
+    const end = Math.min(subtitleWords.length, start + windowSize);
+
+    const displayWords = subtitleWords.slice(start, end);
+    const currentWordInWindow = targetIndex - start;
+
+    // Highlight the current word
+    const html = displayWords.map((word, i) => {
+        if (i === currentWordInWindow) {
+            return `<span class="current-word">${word}</span>`;
+        }
+        return `<span class="other-word">${word}</span>`;
+    }).join(' ');
+
+    subtitleContainer.innerHTML = `<span class="subtitle-text">${html}</span>`;
+}
+
+function hideSubtitles() {
+    if (subtitleContainer) {
+        subtitleContainer.style.display = 'none';
+    }
+}
+
+// Make functions global
+window.initSubtitles = initSubtitles;
+window.updateSubtitles = updateSubtitles;
+window.hideSubtitles = hideSubtitles;
+

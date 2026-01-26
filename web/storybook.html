@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Storybook - Book2Vision</title>
+
+    <!-- External CSS -->
+    <link rel="stylesheet" href="style.css?v=26">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Storybook-specific styles */
+        .storybook-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: var(--space-lg);
+        }
+
+        .storybook-header {
+            text-align: center;
+            margin-bottom: var(--space-xl);
+        }
+
+        .storybook-header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .storybook-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .config-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-md);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+
+        .config-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .config-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .config-group select,
+        .config-group input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(127, 90, 240, 0.2);
+            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.95rem;
+        }
+
+        .config-group select:focus,
+        .config-group input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .generate-btn {
+            background: var(--gradient-primary);
+            border: none;
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-round);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+            max-width: 400px;
+            margin: var(--space-lg) auto;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(127, 90, 240, 0.4);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-section {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-container {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin-bottom: var(--space-md);
+        }
+
+        .progress-bar-fill {
+            background: var(--gradient-primary);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .pages-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-md);
+            margin-top: var(--space-lg);
+        }
+
+        .page-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .page-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            border-color: var(--primary);
+        }
+
+        .page-image {
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            object-fit: cover;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .page-content {
+            padding: var(--space-md);
+        }
+
+        .page-number {
+            font-size: 0.75rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .character-bible {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+            display: none;
+        }
+
+        .character-bible.active {
+            display: block;
+        }
+
+        .character-bible h3 {
+            margin-bottom: var(--space-md);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .characters-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: var(--space-md);
+        }
+
+        .character-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+        }
+
+        .character-card h4 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .character-card p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .no-book-warning {
+            text-align: center;
+            padding: var(--space-xl);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+        }
+
+        .no-book-warning h2 {
+            color: var(--accent);
+            margin-bottom: var(--space-md);
+        }
+
+        .no-book-warning a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar glass" aria-label="Main navigation">
+        <div class="logo">Book2Vision <span class="badge">Beta</span></div>
+        <div class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="storybook.html" class="active">📚 Storybook</a>
+            <a href="library.html">Library</a>
+            <a href="about.html">About us</a>
+        </div>
+    </nav>
+
+    <main class="storybook-container">
+        <div class="storybook-header">
+            <h1>📚 Create 2D Storybook</h1>
+            <p>Generate beautiful, consistent 2D illustrations for every page of your story</p>
+        </div>
+
+        <!-- No Book Warning (hidden when book is loaded) -->
+        <div id="no-book-warning" class="no-book-warning" style="display: none;">
+            <h2>⚠️ No Book Loaded</h2>
+            <p>Please <a href="index.html">upload a book</a> first before creating a storybook.</p>
+        </div>
+
+        <!-- Configuration Panel -->
+        <div id="config-panel" class="config-panel">
+            <div class="config-group">
+                <label>Art Style</label>
+                <select id="art-style">
+                    <option value="watercolor illustration">Watercolor</option>
+                    <option value="gouache painting">Gouache</option>
+                    <option value="ink and wash illustration">Ink & Wash</option>
+                    <option value="flat illustration">Flat Illustration</option>
+                    <option value="colored pencil illustration">Colored Pencil</option>
+                    <option value="pastel illustration">Pastel</option>
+                </select>
+            </div>
+
+            <div class="config-group">
+                <label>Color Palette</label>
+                <select id="color-palette">
+                    <option value="warm, soft pastels">Warm Pastels</option>
+                    <option value="cool, muted tones">Cool Muted</option>
+                    <option value="vibrant, saturated colors">Vibrant</option>
+                    <option value="earth tones">Earth Tones</option>
+                    <option value="monochromatic">Monochromatic</option>
+                </select>
+            </div>
+
+            <div class="config-group">
+                <label>Genre</label>
+                <select id="genre">
+                    <option value="children's fantasy">Children's Fantasy</option>
+                    <option value="adventure story">Adventure</option>
+                    <option value="fairy tale">Fairy Tale</option>
+                    <option value="educational story">Educational</option>
+                    <option value="animal story">Animal Story</option>
+                </select>
+            </div>
+
+            <div class="config-group">
+                <label>Target Age</label>
+                <select id="age-range">
+                    <option value="2-4 years">2-4 years</option>
+                    <option value="4-8 years" selected>4-8 years</option>
+                    <option value="8-12 years">8-12 years</option>
+                    <option value="all ages">All Ages</option>
+                </select>
+            </div>
+
+            <div class="config-group">
+                <label>Max Pages</label>
+                <input type="number" id="max-pages" value="10" min="1" max="20">
+            </div>
+
+            <div class="config-group">
+                <label>Image Provider</label>
+                <select id="provider">
+                    <option value="pollinations">Pollinations (Free)</option>
+                    <option value="deapi">DeepAI (Higher Quality)</option>
+                </select>
+            </div>
+        </div>
+
+        <button id="generate-btn" class="generate-btn" onclick="generateStorybook()">
+            <span>📖</span> Generate Storybook
+        </button>
+
+        <!-- Progress Section -->
+        <div id="progress-section" class="progress-section">
+            <div class="progress-bar-container">
+                <div id="progress-bar" class="progress-bar-fill"></div>
+            </div>
+            <p id="progress-text" class="progress-text">Preparing storybook...</p>
+        </div>
+
+        <!-- Character Bible (shows after generation) -->
+        <div id="character-bible" class="character-bible">
+            <h3>📋 Character Bible</h3>
+            <div id="characters-list" class="characters-list"></div>
+        </div>
+
+        <!-- Pages Gallery -->
+        <div id="pages-gallery" class="pages-gallery"></div>
+    </main>
+
+    <script>
+        // Check if book is loaded
+        async function checkBookLoaded() {
+            try {
+                const response = await fetch('/api/library');
+                const data = await response.json();
+                document.getElementById('config-panel').style.display = 'grid';
+                document.getElementById('generate-btn').style.display = 'flex';
+                document.getElementById('no-book-warning').style.display = 'none';
+            } catch (e) {
+                document.getElementById('config-panel').style.display = 'none';
+                document.getElementById('generate-btn').style.display = 'none';
+                document.getElementById('no-book-warning').style.display = 'block';
+            }
+        }
+
+        async function generateStorybook() {
+            const btn = document.getElementById('generate-btn');
+            const progressSection = document.getElementById('progress-section');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const gallery = document.getElementById('pages-gallery');
+            const characterBible = document.getElementById('character-bible');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span> Generating...';
+            progressSection.classList.add('active');
+            gallery.innerHTML = '';
+            characterBible.classList.remove('active');
+
+            const config = {
+                art_style: document.getElementById('art-style').value,
+                color_palette: document.getElementById('color-palette').value,
+                genre: document.getElementById('genre').value,
+                age_range: document.getElementById('age-range').value,
+                max_pages: parseInt(document.getElementById('max-pages').value),
+                provider: document.getElementById('provider').value
+            };
+
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress = Math.min(progress + Math.random() * 5, 90);
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `Generating illustrations... ${Math.round(progress)}%`;
+            }, 1000);
+
+            try {
+                const response = await fetch('/api/storybook/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+
+                clearInterval(progressInterval);
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Generation failed');
+                }
+
+                const result = await response.json();
+
+                progressBar.style.width = '100%';
+                progressText.textContent = `✅ Generated ${result.successful_pages}/${result.total_pages} pages`;
+
+                if (result.world_bible && result.world_bible.characters) {
+                    displayCharacterBible(result.world_bible.characters);
+                }
+
+                if (result.pages) {
+                    displayPages(result.pages);
+                }
+
+            } catch (error) {
+                clearInterval(progressInterval);
+                progressBar.style.width = '0%';
+                progressText.textContent = `❌ Error: ${error.message}`;
+                console.error('Storybook generation error:', error);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📖</span> Generate Storybook';
+            }
+        }
+
+        function displayCharacterBible(characters) {
+            const container = document.getElementById('characters-list');
+            const section = document.getElementById('character-bible');
+            container.innerHTML = '';
+
+            for (const [name, char] of Object.entries(characters)) {
+                const card = document.createElement('div');
+                card.className = 'character-card';
+                card.innerHTML = `
+                    <h4>${char.name || name}</h4>
+                    <p><strong>Age:</strong> ${char.age || 'Unknown'}</p>
+                    <p><strong>Appearance:</strong> ${char.physical_description || 'Not specified'}</p>
+                    <p><strong>Clothing:</strong> ${char.clothing || 'Not specified'}</p>
+                `;
+                container.appendChild(card);
+            }
+
+            if (Object.keys(characters).length > 0) {
+                section.classList.add('active');
+            }
+        }
+
+        function displayPages(pages) {
+            const gallery = document.getElementById('pages-gallery');
+            gallery.innerHTML = '';
+
+            pages.forEach((page, index) => {
+                const card = document.createElement('div');
+                card.className = 'page-card';
+
+                const imageUrl = page.image_path
+                    ? `/api/storybook/page/${page.page_number}`
+                    : 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250"><rect fill="%23333" width="400" height="250"/><text fill="%23666" x="200" y="125" text-anchor="middle">No Image</text></svg>';
+
+                card.innerHTML = `
+                    <img src="${imageUrl}" alt="Page ${page.page_number}" class="page-image" 
+                         onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 250%22><rect fill=%22%23333%22 width=%22400%22 height=%22250%22/><text fill=%22%23666%22 x=%22200%22 y=%22125%22 text-anchor=%22middle%22>Failed</text></svg>'">
+                    <div class="page-content">
+                        <div class="page-number">Page ${page.page_number}</div>
+                        <p class="page-text">${page.text || ''}</p>
+                    </div>
+                `;
+                gallery.appendChild(card);
+            });
+        }
+
+        checkBookLoaded();
+    </script>
+</body>
+
+</html>

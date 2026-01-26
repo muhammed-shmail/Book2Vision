@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Rate limiting configuration
-MAX_CONCURRENT_REQUESTS = 2  # Increased slightly as we have better session management
+MAX_CONCURRENT_REQUESTS = 4  # Increased to speed up generation
 MAX_RETRY_ATTEMPTS = 3  # Reduced retries to fail faster
 BASE_RETRY_DELAY_SECONDS = 2
 INTER_REQUEST_DELAY_SECONDS = 1
@@ -53,29 +53,36 @@ rate_limiter = RateLimitController(max_concurrent=MAX_CONCURRENT_REQUESTS)
 async def generate_entity_image(entity_name, entity_role, output_dir, seed=None):
     """
     Generates a circular-ready avatar image for an entity (Async).
+    Uses DeAPI (Flux1schnell) for best quality, falls back to Pollinations.
     """
     if seed is None:
         seed = random.randint(0, 10000)
         
     from src.prompts import ENTITY_PROMPT_TEMPLATE
-    prompt = ENTITY_PROMPT_TEMPLATE.format(name=entity_name, role=entity_role, style="digital art")
-    encoded_prompt = urllib.parse.quote(prompt)
-    
-    # Use Flux model for better quality
-    # Updated to use authenticated gen.pollinations.ai endpoint
-    # Removed enhance and negative params to fix 400 error
-    image_url = f"https://gen.pollinations.ai/image/{encoded_prompt}?seed={seed}&width=1024&height=1024&model=flux&nologo=true"
+    # Use species if available (not passed here, so generic)
+    prompt = ENTITY_PROMPT_TEMPLATE.format(name=entity_name, role=entity_role, species="Character", style="digital art")
     
     safe_name = re.sub(r'[\\/*?:"<>|\n\r]', "_", entity_name)
     filename = f"entity_{safe_name}.jpg"
     img_path = os.path.join(output_dir, filename)
     
-    # Create a transient session for single entity generation
-    # Add API key if available
+    # Try DeAPI first - DISABLED, using Pollinations
+    # api_key = os.getenv("DEAPI_API_KEY")
+    # if api_key:
+    #     async with aiohttp.ClientSession(headers=DEFAULT_HEADERS) as session:
+    #         result = await _generate_image_with_deapi(session, prompt, img_path, f"Entity: {entity_name}", width=1024, height=1024)
+    #         if result:
+    #             return result
+    
+    # Fallback to Pollinations
+    print(f"🔄 Falling back to Pollinations for {entity_name}...")
+    encoded_prompt = urllib.parse.quote(prompt)
+    image_url = f"https://gen.pollinations.ai/image/{encoded_prompt}?seed={seed}&width=1024&height=1024&model=flux&nologo=true"
+    
     headers = DEFAULT_HEADERS.copy()
-    api_key = os.getenv("POLLINATIONS_API_KEY")
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
+    pollinations_key = os.getenv("POLLINATIONS_API_KEY")
+    if pollinations_key:
+        headers["Authorization"] = f"Bearer {pollinations_key}"
         
     async with aiohttp.ClientSession(headers=headers) as session:
         return await _download_image_async(session, image_url, img_path, f"Entity: {entity_name}")
@@ -91,12 +98,17 @@ async def _download_image_async(session, url, output_path, description):
             
             try:
                 # 30s timeout for the request itself
-                timeout = aiohttp.ClientTimeout(total=30)
+                timeout = aiohttp.ClientTimeout(total=45) # Increased timeout
                 print(f"⬇️ Starting download for: {description} (Attempt {attempt+1})")
                 
                 async with session.get(url, timeout=timeout) as response:
                     if response.status == 200:
                         content = await response.read()
+                        # Verify content is actually an image
+                        if len(content) < 1000:
+                            print(f"⚠️ Warning: Image content too small for {description}")
+                            continue
+                            
                         with open(output_path, 'wb') as handler:
                             handler.write(content)
                         print(f"✅ Saved: {output_path}")
@@ -110,12 +122,13 @@ async def _download_image_async(session, url, output_path, description):
                         await rate_limiter.trigger_backoff(wait_time)
                         await asyncio.sleep(wait_time)
                         
+                    elif response.status >= 500:
+                        print(f"⚠️ Server error {response.status} for {description}. Retrying...")
+                        await asyncio.sleep(2)
+                        
                     else:
                         print(f"⚠️ Failed to download {description}: {response.status}")
-                        if 500 <= response.status < 600:
-                            await asyncio.sleep(2)
-                        else:
-                            return None
+                        return None
                                 
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 wait_time = (2 ** (attempt + 1))
@@ -179,7 +192,7 @@ async def _generate_image_with_deapi(session, prompt, output_path, description, 
                 return None
         
         # Poll
-        for _ in range(20): # 40s max
+        for _ in range(30): # Increased polling to 60s
             await asyncio.sleep(2)
             async with session.get(
                 f"https://api.deapi.ai/api/v1/client/request-status/{request_id}",
@@ -210,13 +223,225 @@ async def _generate_image_with_deapi(session, prompt, output_path, description, 
         return None
     return None
 
+# ----------------------------------------------------------------------------
+# CHARACTER PORTRAIT SYSTEM
+# ----------------------------------------------------------------------------
+
+# Character visual cache for consistency
+_character_visual_cache = {}
+
+def get_character_seed(name: str) -> int:
+    """Generate a consistent seed for a character based on their name."""
+    return abs(hash(name)) % (2**31)
+
+def get_character_color_palette(role: str) -> str:
+    """Generate color palette suggestion based on character role."""
+    palettes = {
+        "protagonist": "warm tones, gold highlights, heroic blue accents",
+        "antagonist": "dark purples, crimson accents, cold shadows",
+        "mentor": "wise silvers, deep blues, warm amber",
+        "ally": "friendly greens, warm yellows, soft earth tones",
+        "love interest": "romantic pinks, soft purples, warm highlights",
+        "comic relief": "bright oranges, playful yellows, vibrant accents",
+        "mysterious": "deep indigo, silver highlights, misty grays",
+        "default": "balanced natural tones, complementary accents"
+    }
+    role_lower = role.lower()
+    for key in palettes:
+        if key in role_lower:
+            return palettes[key]
+    return palettes["default"]
+
+async def generate_character_portrait(
+    name: str,
+    role: str,
+    physical_description: str,
+    outfit: str,
+    signature_prop: str,
+    output_dir: str,
+    style: str = "anime",
+    genre: str = "fantasy",
+    pose_type: str = "confident standing",
+    expression: str = "determined"
+) -> str:
+    """
+    Generates a full-body character portrait with consistency anchors.
+    """
+    from src.prompts import CHARACTER_PORTRAIT_PROMPT
+    
+    # Get consistent seed for this character
+    character_seed = get_character_seed(name)
+    color_palette = get_character_color_palette(role)
+    
+    # Determine background based on genre
+    background_colors = {
+        "fantasy": "soft ethereal gradient",
+        "sci-fi": "tech-blue to dark gray gradient",
+        "horror": "dark misty gradient",
+        "romance": "warm sunset gradient",
+        "thriller": "noir shadows gradient",
+        "default": "neutral studio gray"
+    }
+    background = background_colors.get(genre.lower(), background_colors["default"])
+    
+    # Build the prompt
+    prompt = CHARACTER_PORTRAIT_PROMPT.format(
+        name=name,
+        role=role,
+        genre=genre,
+        physical_description=physical_description,
+        outfit=outfit,
+        signature_prop=signature_prop if signature_prop and signature_prop.lower() != "none" else "no special items",
+        style=style,
+        color_palette=color_palette,
+        character_seed=character_seed,
+        pose_type=pose_type,
+        expression=expression,
+        background_color=background
+    )
+    
+    # Cache the visual description for use in scene generation
+    _character_visual_cache[name] = {
+        "seed": character_seed,
+        "physical": physical_description,
+        "outfit": outfit,
+        "prop": signature_prop,
+        "color_palette": color_palette,
+        "prompt_snippet": f"{name}: {physical_description}, wearing {outfit}"
+    }
+    
+    # Generate filename
+    safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+    filename = f"portrait_{safe_name}.jpg"
+    img_path = os.path.join(output_dir, filename)
+    
+    # Use Pollinations for character portraits
+    headers = DEFAULT_HEADERS.copy()
+    async with aiohttp.ClientSession(headers=headers) as session:
+        print(f"🎨 Generating portrait for {name} with Pollinations...")
+        encoded_prompt = urllib.parse.quote(prompt[:1000])  # URL length limit
+        seed = character_seed
+        # Add API key if available
+        api_key = os.getenv("POLLINATIONS_API_KEY")
+        if api_key:
+            session.headers["Authorization"] = f"Bearer {api_key}"
+        
+        image_url = f"https://gen.pollinations.ai/image/{encoded_prompt}?seed={seed}&width=768&height=1024&model=flux&nologo=true"
+        return await _download_image_async(session, image_url, img_path, f"Portrait: {name}")
+
+async def generate_character_sheet(
+    name: str,
+    role: str,
+    physical_description: str,
+    outfit: str,
+    signature_prop: str,
+    output_dir: str,
+    style: str = "anime"
+) -> str:
+    """
+    Generates a multi-view character reference sheet.
+    """
+    from src.prompts import CHARACTER_SHEET_PROMPT
+    
+    prompt = CHARACTER_SHEET_PROMPT.format(
+        name=name,
+        role=role,
+        physical_description=physical_description,
+        outfit=outfit,
+        signature_prop=signature_prop if signature_prop and signature_prop.lower() != "none" else "no accessories",
+        style=style
+    )
+    
+    safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+    filename = f"sheet_{safe_name}.jpg"
+    img_path = os.path.join(output_dir, filename)
+    
+    headers = DEFAULT_HEADERS.copy()
+    async with aiohttp.ClientSession(headers=headers) as session:
+        print(f"🎨 Generating sheet for {name} with Pollinations...")
+        encoded_prompt = urllib.parse.quote(prompt[:1000])
+        seed = get_character_seed(name)
+        api_key = os.getenv("POLLINATIONS_API_KEY")
+        if api_key:
+            session.headers["Authorization"] = f"Bearer {api_key}"
+            
+        image_url = f"https://gen.pollinations.ai/image/{encoded_prompt}?seed={seed}&width=1920&height=1080&model=flux&nologo=true"
+        return await _download_image_async(session, image_url, img_path, f"Sheet: {name}")
+
+async def generate_all_character_portraits(semantic_map: dict, output_dir: str, style: str = "anime", genre: str = "fantasy") -> list:
+    """
+    Generates portraits for all characters in the semantic map.
+    """
+    entities = semantic_map.get("entities", [])
+    if not entities:
+        print("⚠️ No entities found for portrait generation")
+        return []
+    
+    portraits = []
+    
+    for entity in entities:
+        # Parse entity data (supports both 3-item and 5-item formats)
+        if isinstance(entity, list):
+            if len(entity) >= 5:
+                name, role, physical, outfit, prop = entity[0], entity[1], entity[2], entity[3], entity[4]
+            elif len(entity) >= 3:
+                name, role, physical = entity[0], entity[1], entity[2]
+                outfit = "appropriate attire for their role"
+                prop = "none"
+            elif len(entity) >= 2:
+                name, role = entity[0], entity[1]
+                physical = "distinctive appearance"
+                outfit = "appropriate attire"
+                prop = "none"
+            else:
+                continue
+        else:
+            continue
+        
+        portrait_path = await generate_character_portrait(
+            name=name,
+            role=role,
+            physical_description=physical,
+            outfit=outfit,
+            signature_prop=prop,
+            output_dir=output_dir,
+            style=style,
+            genre=genre
+        )
+        
+        if portrait_path:
+            portraits.append(portrait_path)
+    
+    print(f"✅ Generated {len(portraits)} character portraits")
+    return portraits
+
+def get_cached_character_visuals() -> dict:
+    """Returns the cached character visual descriptions for scene consistency."""
+    return _character_visual_cache.copy()
+
+async def _generate_entity_with_fallback(session, prompt, img_path, description, seed, model="flux"):
+    """
+    Tries to generate with deAPI, falls back to Pollinations if it fails.
+    """
+    # Try deAPI first
+    result = await _generate_image_with_deapi(session, prompt, img_path, description, width=1024, height=1024)
+    if result:
+        return result
+    
+    # Fallback to Pollinations
+    print(f"🔄 Falling back to Pollinations for {description}...")
+    encoded_prompt = urllib.parse.quote(prompt)
+    image_url = f"https://gen.pollinations.ai/image/{encoded_prompt}?seed={seed}&width=1024&height=1024&model={model}&nologo=true"
+    
+    return await _download_image_async(session, image_url, img_path, description)
+
 async def generate_images(semantic_map, output_dir, style="manga", seed=None, title=None, include_entities=True):
     """
     Generates images based on semantic analysis using Pollinations.ai (Flux) for scenes and deAPI for entities.
     """
     scene_provider = "pollinations"
-    entity_provider = "deapi"
-    model = "turbo"  # SDXL Turbo - better for stylized/comic art
+    entity_provider = "pollinations"  # Changed to pollinations for entities
+    model = "flux"  # Flux Schnell - best quality/speed balance
     print("="*50)
     print(f"🚀 generate_images() STARTED")
     print(f"Scene Provider: {scene_provider}")
@@ -347,7 +572,10 @@ async def generate_images(semantic_map, output_dir, style="manga", seed=None, ti
         if include_entities:
             top_entities = entities[:3]
         for i, entity in enumerate(top_entities):
-            if isinstance(entity, list) and len(entity) >= 2:
+            species = "Character"
+            if isinstance(entity, list) and len(entity) >= 3:
+                name, role, species = entity[0], entity[1], entity[2]
+            elif isinstance(entity, list) and len(entity) >= 2:
                 name, role = entity[0], entity[1]
             elif isinstance(entity, tuple) and len(entity) >= 2:
                 name, role = entity[0], entity[1]
@@ -355,13 +583,13 @@ async def generate_images(semantic_map, output_dir, style="manga", seed=None, ti
                 name = str(entity)
                 role = "Character"
             
-            prompt = ENTITY_PROMPT_TEMPLATE.format(name=name, role=role, style=style)
+            prompt = ENTITY_PROMPT_TEMPLATE.format(name=name, role=role, species=species, style=style)
             safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
             filename = f"image_02_entity_{safe_name}.jpg"
             img_path = os.path.join(output_dir, filename)
             
             if entity_provider == "deapi":
-                 tasks.append(_generate_image_with_deapi(session, prompt, img_path, f"Entity: {name}", width=1024, height=1024))
+                 tasks.append(_generate_entity_with_fallback(session, prompt, img_path, f"Entity: {name}", seed=seed+i+1, model=model))
             else:
                 encoded_prompt = urllib.parse.quote(prompt)
                 # Updated to use authenticated gen.pollinations.ai endpoint with selected model

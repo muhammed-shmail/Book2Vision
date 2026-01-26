@@ -1,293 +1,602 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
+
 <html lang="en">
 
+
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Book2Vision | Transform Your Reading</title>
+
     <meta name="description" content="Transform digital books into immersive multimedia experiences with AI.">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
+
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
     <link
         href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=12">
+
+    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="carousel.css?v=2">
+
 </head>
+
+
 
 <body>
 
+
+
     <!-- Background Elements -->
+
     <div class="bg-orb orb-1" aria-hidden="true"></div>
+
     <div class="bg-orb orb-2" aria-hidden="true"></div>
+
     <div class="bg-grid" aria-hidden="true"></div>
 
+
+
     <!-- Navbar -->
+
     <nav class="navbar glass" aria-label="Main navigation">
+
         <div class="logo">Book2Vision <span class="badge">Beta</span></div>
+
         <div class="hamburger" onclick="toggleMenu()" aria-label="Toggle menu" role="button" tabindex="0">
+
             <span></span>
+
             <span></span>
+
             <span></span>
+
         </div>
+
         <div class="nav-links">
+
             <a href="index.html" class="active" aria-current="page">Home</a>
+
+
+
             <a href="library.html">Library</a>
+
             <a href="about.html">About us</a>
+
         </div>
+
     </nav>
 
+
+
     <!-- Toast Notification Container -->
+
     <div id="toast-container" aria-live="polite"></div>
 
+
+
     <main>
+
         <!-- Hero / Upload Section -->
+
         <section id="hero" class="container fade-in">
+
             <div class="hero-content">
+
                 <h1>Experience Books <br> Like Never Before</h1>
+
                 <p>Turn any PDF into an immersive multimedia journey with AI-powered narration and visualization.</p>
 
+
+
                 <div class="upload-zone glass" id="drop-zone" role="button" tabindex="0" aria-label="Upload book area">
+
                     <div class="upload-icon" aria-hidden="true">🗁</div>
+
                     <h3>Drag & Drop your book here</h3>
+
                     <p>Supports PDF, EPUB, TXT</p>
+
                     <input type="file" id="file-input" hidden accept=".pdf,.epub,.txt" aria-label="File upload">
+
                     <button class="btn-primary" onclick="document.getElementById('file-input').click()">Browse
+
                         Files</button>
+
                 </div>
+
+
 
                 <div id="upload-status" class="hidden fade-in" aria-live="polite">
+
                     <!-- Custom Book Loader -->
+
                     <div class="book">
+
                         <div class="book__pg-shadow"></div>
+
                         <div class="book__pg"></div>
+
                         <div class="book__pg book__pg--2"></div>
+
                         <div class="book__pg book__pg--3"></div>
+
                         <div class="book__pg book__pg--4"></div>
+
                         <div class="book__pg book__pg--5"></div>
+
                     </div>
+
+
 
                     <!-- Upload progress bar -->
+
                     <div class="upload-progress-container" role="progressbar" aria-valuemin="0" aria-valuemax="100"
                         aria-valuenow="0">
+
                         <div class="upload-progress-bar" id="upload-progress-bar"></div>
+
                     </div>
+
                     <p class="upload-progress-text" id="upload-progress-text">0%</p>
 
+
+
                     <p style="margin-top: 1rem; font-weight: 500;" id="upload-status-title">Uploading your book...</p>
+
                     <p class="status-detail" id="status-detail">Preparing file...</p>
+
                 </div>
+
             </div>
+
         </section>
 
+
+
         <!-- Dashboard (Hidden initially) -->
+
         <section id="dashboard" class="container hidden fade-in" aria-label="Book Dashboard">
 
+
+
             <!-- Top Bar: Book Info & Settings -->
+
             <div class="dashboard-header glass">
+
                 <div class="book-info">
+
                     <h2 id="book-title">Book Title</h2>
+
                     <p id="book-author">Author Name</p>
+
                 </div>
+
+
 
                 <div class="controls-group">
-                    <div class="control-item">
-                        <label for="audio-provider">Audio Provider</label>
-                        <select id="audio-provider" class="glass-input">
-                            <option value="deepgram">Deepgram (Fast)</option>
-                            <option value="elevenlabs">ElevenLabs (High Quality)</option>
-                            <option value="inbuilt">Inbuilt (Free)</option>
-                        </select>
-                    </div>
 
                     <div class="control-item">
-                        <label for="style-select">Art Style</label>
-                        <select id="style-select" class="glass-input">
-                            <option value="storybook">Storybook</option>
-                            <option value="cinematic">Cinematic</option>
-                            <option value="anime">Anime</option>
-                            <option value="watercolor">Watercolor</option>
-                            <option value="cyberpunk">Cyberpunk</option>
-                            <option value="fantasy">Fantasy</option>
+
+                        <label for="audio-provider">Audio Provider</label>
+
+                        <select id="audio-provider" class="glass-input">
+
+                            <option value="deepgram">Deepgram (Fast)</option>
+
+                            <option value="elevenlabs">ElevenLabs (High Quality)</option>
+
+                            <option value="inbuilt">Inbuilt (Free)</option>
+
                         </select>
+
                     </div>
+
+
+
+                    <div class="control-item">
+
+                        <label for="style-select">Art Style</label>
+
+                        <select id="style-select" class="glass-input">
+
+                            <option value="storybook">Storybook</option>
+
+                            <option value="cinematic">Cinematic</option>
+
+                            <option value="anime">Anime</option>
+
+                            <option value="watercolor">Watercolor</option>
+
+                            <option value="cyberpunk">Cyberpunk</option>
+
+                            <option value="fantasy">Fantasy</option>
+
+                        </select>
+
+                    </div>
+
+
 
                     <button class="btn-icon" onclick="toggleSettings()" title="Advanced Settings"
-                        aria-label="Advanced Settings">⚙️</button>
+                        aria-label="Advanced Settings">⛯</button>
+
                 </div>
+
+
+
 
 
             </div>
 
+
+
             <div class="dashboard-grid">
+
                 <!-- Left: Entities -->
+
                 <div class="panel-left glass">
+
                     <div class="panel-header">
+
                         <h3>Characters</h3>
+
                         <span class="badge-count" id="entity-count">0</span>
+
                     </div>
+
                     <div id="entities-list" class="entities-grid" aria-label="List of characters">
+
                         <!-- Entities injected here -->
+
                         <div class="skeleton-card" aria-hidden="true"></div>
+
                         <div class="skeleton-card" aria-hidden="true"></div>
+
                         <div class="skeleton-card" aria-hidden="true"></div>
+
                     </div>
+
                 </div>
 
+
+
                 <!-- Center: Audio Player & Q&A -->
+
                 <div class="panel-center">
+
                     <!-- Audio Player -->
+
                     <div class="audio-player-ui glass">
+
                         <div class="bg-waveform" aria-hidden="true">
+
                             <span></span>
+
                             <span></span>
+
                             <span></span>
+
                         </div>
+
                         <div class="player-header">
+
                             <h3>Audiobook Player</h3>
+
                             <div class="header-controls" style="display: flex; gap: 0.5rem;">
+
                                 <button id="btn-audio" class="btn-sm">
-                                    <span class="icon" aria-hidden="true">🎧</span> Generate Audiobook
+
+                                    <span class="icon" aria-hidden="true">☊</span> Generate Audiobook
+
                                 </button>
+
                                 <button id="btn-podcast" class="btn-sm btn-podcast">
+
                                     <span class="icon" aria-hidden="true">🎙️</span> Generate Podcast
+
                                 </button>
+
                             </div>
+
                         </div>
+
+
 
                         <!-- Podcast Player (Hidden initially) -->
+
                         <div id="podcast-player-ui" class="podcast-player hidden fade-in" aria-label="Podcast Player">
+
                             <div class="podcast-header">
-                                <span style="font-size: 1.2rem;" aria-hidden="true">🎙️</span>
+
+                                <span style="font-size: 1.2rem;" aria-hidden="true">🎤︎︎</span>
+
                                 <div style="flex:1; margin-left: 0.5rem;">
+
                                     <div style="font-weight: 700; font-size: 0.9rem;">Booked & Busy</div>
+
                                     <div style="font-size: 0.75rem; opacity: 0.8;">with Jax & Emma</div>
+
                                 </div>
+
                                 <button class="btn-icon-sm" onclick="closePodcast()"
                                     aria-label="Close Podcast">✕</button>
+
                             </div>
+
                             <div class="podcast-visualizer" aria-hidden="true">
-                                <div class="speaker-avatar" id="podcast-avatar">🎤</div>
+
+                                <div class="speaker-avatar" id="podcast-avatar">✍🏼</div>
+
                                 <div class="podcast-wave">
+
                                     <span></span><span></span><span></span><span></span><span></span>
+
                                 </div>
+
                             </div>
+
                             <div class="podcast-transcript" id="podcast-transcript" aria-live="polite">
+
                                 Generating script...
+
                             </div>
+
                         </div>
 
+
+
                         <div class="audio-visualizer" aria-hidden="true">
-                            <!-- Simple CSS visualizer bars -->
+
+                            <!-- Enhanced Waveform Visualizer -->
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
                             <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
+                            <div class="bar"></div>
+
                         </div>
+
+
 
                         <div class="progress-container" id="progress-container" role="slider"
                             aria-label="Audio Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
                             tabindex="0">
+
                             <div class="progress-bar" id="audio-progress"></div>
+
                             <div class="progress-hover" id="progress-hover"></div>
+
                         </div>
+
+
 
                         <div class="time-display">
+
                             <span id="current-time">0:00</span> / <span id="total-time">0:00</span>
+
                         </div>
+
+
 
                         <div class="player-controls">
-                            <button class="btn-control" onclick="skip(-15)" aria-label="Rewind 15 seconds">↺
+
+                            <button class="btn-control" onclick="skip(-15)" aria-label="Rewind 15 seconds"> ↺
+
                                 15s</button>
+
                             <button class="btn-play" id="btn-play-pause" aria-label="Play or Pause">▶</button>
+
                             <button class="btn-control" onclick="skip(15)" aria-label="Forward 15 seconds">15s
-                                ↻</button>
+
+                                ↻ </button>
+
                         </div>
+
+
 
                         <!-- Hidden audio element for logic -->
+
                         <audio id="audio-player" hidden></audio>
+
                     </div>
+
+
 
                     <!-- Q&A Section -->
+
                 </div>
+
+
 
                 <!-- Right: Generated Image -->
+
                 <div class="panel-image glass">
+
                     <div class="player-header">
+
                         <h3>Visuals</h3>
+
                         <button id="btn-visuals" class="btn-sm">
+
                             <span class="icon" aria-hidden="true">🎨</span> Generate Visuals
+
                         </button>
-                        <button id="btn-create-comic" class="btn-sm"
-                            style="margin-left: 0.5rem; background: rgba(255, 255, 255, 0.2);">
-                            <span class="icon" aria-hidden="true">🗯️</span> Create Comic
-                        </button>
+
                     </div>
-                    <div class="image-display" id="image-display" aria-label="Generated Visuals">
-                        <div class="placeholder-content">
-                            <div class="icon-large" aria-hidden="true">🖼️</div>
-                            <p>Generate visuals to see the story come to life.</p>
+
+                    <div class="carousel-container">
+                        <button class="carousel-btn prev" onclick="prevImage()" aria-label="Previous Image">❮</button>
+                        <div class="image-display" id="image-display" aria-label="Generated Visuals">
+
+                            <div class="placeholder-content">
+
+                                <div class="icon-large" aria-hidden="true">🖼️</div>
+
+                                <p>Generate visuals to see the story come to life.</p>
+
+                            </div>
+
                         </div>
+
+                        <button class="carousel-btn next" onclick="nextImage()" aria-label="Next Image">❯</button>
+                        <div class="carousel-counter" id="carousel-counter">0/0</div>
                     </div>
+                    <div class="carousel-indicators" id="carousel-indicators"></div>
+
                 </div>
+
             </div>
+
         </section>
 
+
+
         <!-- Chatbot Widget -->
+
         <div id="chatbot-widget" class="chatbot-window glass hidden" aria-label="Chatbot">
+
             <div class="chatbot-header">
+
                 <h3>Ask Book</h3>
+
                 <button class="btn-icon" aria-label="Close Chatbot">✕</button>
+
             </div>
+
             <div class="qa-chat-container" id="qa-chat-container" aria-live="polite">
+
                 <div class="chat-message system">
+
                     Ask any question about the plot, characters, or themes!
+
                 </div>
+
             </div>
+
             <div class="qa-suggestions" id="qa-suggestions"></div>
+
             <div class="qa-input-wrapper">
+
                 <input type="text" id="qa-input" placeholder="Ask a question..." class="glass-input qa-input"
                     autocomplete="off" aria-label="Chat input">
+
                 <button class="btn-send" id="btn-send-qa" aria-label="Send message">➤</button>
+
             </div>
+
         </div>
+
+
 
         <button id="chatbot-fab" class="chatbot-fab btn-primary hidden" aria-label="Open Chatbot">
+
             💬
+
         </button>
+
         <!-- Immersive Mode Overlay -->
+
         <div id="immersive-overlay" class="immersive-overlay hidden" aria-label="Immersive Story Player">
+
             <div class="immersive-content">
+
                 <div class="immersive-image-container">
+
                     <img id="immersive-image" src="" alt="Scene Visual" class="fade-in">
+
                 </div>
+
                 <div class="immersive-text-container glass">
+
                     <p id="immersive-text" class="typewriter-text"></p>
+
                 </div>
+
                 <div class="immersive-controls">
-                    <button class="btn-icon-lg" onclick="prevScene()">⏮️</button>
-                    <button class="btn-icon-lg" id="btn-immersive-play" onclick="toggleImmersivePlay()">⏸️</button>
-                    <button class="btn-icon-lg" onclick="nextScene()">⏭️</button>
+
+                    <button class="btn-icon-lg" onclick="prevScene()">â®ï¸</button>
+
+                    <button class="btn-icon-lg" id="btn-immersive-play" onclick="toggleImmersivePlay()">â¸ï¸</button>
+
+                    <button class="btn-icon-lg" onclick="nextScene()">â­ï¸</button>
+
                     <button class="btn-icon-lg" id="btn-generate-motion" onclick="generateMotionForCurrentScene()"
                         title="Animate Scene" style="margin-left: 1rem;">🎬</button>
-                    <button class="btn-icon-lg" onclick="closeImmersiveMode()" style="margin-left: 1rem;">❌</button>
+
+                    <button class="btn-icon-lg" onclick="closeImmersiveMode()" style="margin-left: 1rem;">âŒ</button>
+
                 </div>
+
                 <div class="immersive-progress">
+
                     <span id="immersive-counter">Scene 1/5</span>
+
                 </div>
+
             </div>
+
             <audio id="immersive-audio" hidden></audio>
+
         </div>
+
     </main>
 
-    <script src="script.js?v=12"></script>
+
+
+    <script src="script.js?v=26"></script>
+
 </body>
+
+
 
 </html>

@@ -23,8 +23,11 @@ async def semantic_analysis(text):
     if api_key:
         result = await semantic_analysis_with_llm(text, api_key)
         # If successful and has entities, return it
-        if result and result.get("summary") != "Analysis failed." and result.get("entities"):
-            print(f"✅ Gemini analysis succeeded. Found {len(result.get('entities', []))} entities.")
+        if result and result.get("entities"):
+            # Enforce minimum scenes
+            ensure_minimum_scenes(result)
+
+            print(f"✅ Gemini analysis succeeded. Found {len(result.get('entities', []))} entities and {len(result.get('scenes', []))} scenes.")
             return result
         print(f"❌ Gemini analysis failed or returned no entities. Result: {result}")
         print("Falling back...")
@@ -62,10 +65,42 @@ async def semantic_analysis(text):
     ]
     
     return {
-        "summary": text[:200] + "...",
         "entities": top_entities,
         "keywords": [],
-        "scenes": ["Scene 1: A key moment from the story."]
+        "scenes": [
+            {
+                "description": "The story begins, introducing the main characters and setting.",
+                "excerpt": "The beginning...",
+                "narrator_intro": "Our story starts here.",
+                "emotion": "anticipation",
+                "mood": "introductory",
+                "environment": "opening scene"
+            },
+            {
+                "description": "A key event occurs that sets the plot in motion.",
+                "excerpt": "Something happens...",
+                "narrator_intro": "Then, everything changed.",
+                "emotion": "surprise",
+                "mood": "dynamic",
+                "environment": "key location"
+            },
+            {
+                "description": "The tension rises as the characters face a challenge.",
+                "excerpt": "The conflict grows...",
+                "narrator_intro": "The stakes were getting higher.",
+                "emotion": "tension",
+                "mood": "intense",
+                "environment": "challenging setting"
+            },
+            {
+                "description": "The story reaches its conclusion or a dramatic moment.",
+                "excerpt": "The climax approaches...",
+                "narrator_intro": "Finally, the moment of truth.",
+                "emotion": "dramatic",
+                "mood": "climactic",
+                "environment": "final setting"
+            }
+        ]
     }
 
 from src.prompts import SEMANTIC_ANALYSIS_PROMPT
@@ -76,7 +111,7 @@ async def semantic_analysis_with_llm(text, api_key):
     try:
         client, model_name = get_gemini_model(capability="text", api_key=api_key)
         
-        prompt = SEMANTIC_ANALYSIS_PROMPT.format(text=text[:5000])
+        prompt = SEMANTIC_ANALYSIS_PROMPT.format(text=text[:100000])
         
         # Run blocking generation in thread
         response = await asyncio.to_thread(
@@ -98,7 +133,7 @@ async def semantic_analysis_with_llm(text, api_key):
         import traceback
         print(f"Gemini Analysis Failed: {e}")
         traceback.print_exc()
-        return {"summary": "Analysis failed.", "entities": [], "keywords": []}
+        return {"entities": [], "keywords": []}
 
 
 def chapter_segmentation(text):
@@ -131,3 +166,35 @@ def identify_visual_content(text):
     visual_keywords = ["see", "look", "diagram", "figure", "image", "picture", "scene"]
     # This is a very basic heuristic
     return []
+
+def ensure_minimum_scenes(analysis_result, min_scenes=4):
+    """
+    Ensures the analysis result has at least min_scenes.
+    Pads with generic scenes if necessary.
+    Modifies the dictionary in-place.
+    """
+    scenes = analysis_result.get("scenes", [])
+    if len(scenes) < min_scenes:
+        print(f"⚠️ Only {len(scenes)} scenes found. Padding to {min_scenes} with generic scenes.")
+        defaults = [
+            "The journey continues as the plot unfolds.",
+            "A moment of quiet reflection or building tension.",
+            "The characters face a new challenge or revelation.",
+            "The story reaches a pivotal turning point.",
+            "New developments change the course of events.",
+            "The atmosphere shifts as the story progresses."
+        ]
+        
+        # Add defaults until we have min_scenes
+        needed = min_scenes - len(scenes)
+        for i in range(needed):
+            scenes.append({
+                "description": defaults[i % len(defaults)],
+                "excerpt": "The story continues...",
+                "narrator_intro": "Moving forward...",
+                "emotion": "neutral",
+                "mood": "atmospheric",
+                "environment": "in the story setting"
+            })
+        analysis_result["scenes"] = scenes
+    return analysis_result

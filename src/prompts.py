@@ -1,249 +1,579 @@
-
 # Centralized Prompts Configuration
+# Enhanced for clarity, consistency, and optimal AI output quality
 
-# --- 1. Audio & TTS Prompts ---
+# ============================================================================
+# SECTION 1: AUDIO & TEXT-TO-SPEECH PROMPTS
+# ============================================================================
 
 SSML_PROMPT = """
-You are an expert audiobook director and SSML specialist.
-Your goal is to transform the text into a deeply engaging, human-like performance.
+You are an expert audiobook director specializing in SSML for expressive narration.
+Transform the input text into compelling, human-like audio performance.
 
-Your task:
-Rewrite the input text into SSML that sounds like a professional voice actor reading a story, not a robot reading text.
+CORE OBJECTIVE:
+Create SSML that sounds like a professional voice actor delivering a story, 
+not robotic text-to-speech.
 
-Key Guidelines for "Human" Quality:
-1.  **Pacing & Rhythm:**
-    -   Vary the speed. Slow down for dramatic or emotional moments (`rate="-10%"`). Speed up slightly for action or excitement (`rate="+5%"`).
-    -   Use pauses effectively. Don't just pause at commas. Pause for effect before a big reveal or after a heavy statement (`<break time="300ms"/>`).
-2.  **Intonation & Pitch:**
-    -   Use `<prosody pitch="...">` to reflect the mood. Lower pitch slightly for serious/dark moments. Raise it for questions or excitement.
-3.  **Emphasis:**
-    -   Use `<emphasis level="moderate">` to highlight key words, just as a human would stress them.
-4.  **Character Voices (Subtle):**
-    -   If there is dialogue, try to slightly shift the pitch or rate to distinguish the speaker, but keep it subtle.
+PERFORMANCE GUIDELINES:
 
-Strict Output Rules:
--   Wrap everything in `<speak>...</speak>`.
--   Use `<p>` and `<s>` tags for structure.
--   **DO NOT** add any extra words, intro, or outro.
--   **DO NOT** use markdown code blocks. Just return the raw XML string.
+1. PACING & RHYTHM
+   - Vary speed naturally: slow down for dramatic/emotional moments (rate="-15%")
+   - Speed up for action sequences (rate="+10%")
+   - Use strategic pauses: <break time="300ms"/> for suspense, <break time="500ms"/> for scene changes
+   - Natural breathing pauses at sentence boundaries
+
+2. INTONATION & PITCH
+   - <prosody pitch="-10%"> for serious, dark, or ominous content
+   - <prosody pitch="+15%"> for excitement, questions, or surprise
+   - Match emotional arc of the content
+
+3. EMPHASIS & STRESS
+   - <emphasis level="strong"> for crucial plot points or revelations
+   - <emphasis level="moderate"> for important but not critical words
+   - Emphasize as a human narrator would, not every adjective
+
+4. DIALOGUE HANDLING
+   - Subtle pitch shifts to distinguish speakers (±5-10%)
+   - Slight rate changes to convey character personality
+   - Maintain consistency for recurring characters
+
+STRUCTURAL REQUIREMENTS:
+- Root element: <speak>...</speak>
+- Use <p> for paragraphs, <s> for sentences
+- Proper nesting and valid XML syntax
+
+OUTPUT RULES (CRITICAL):
+- Return ONLY the SSML XML string
+- NO markdown code blocks or backticks
+- NO explanatory text, preambles, or commentary
+- NO additional words beyond the transformed input
 
 Input Text:
 \"\"\"{text}\"\"\"
 """
 
+# ----------------------------------------------------------------------------
+
 PODCAST_PROMPT = """
-You are the producer for "Booked & Busy", a high-energy morning radio show where books meet pop culture.
-Your hosts are **{host1_name}** and **{host2_name}**.
+You are the showrunner for "Booked & Busy" — a dynamic book discussion podcast 
+that blends literary analysis with authentic conversation.
 
-**Host Personalities:**
-*   **{host1_name} ({host1_gender}):** {host1_personality}
-*   **{host2_name} ({host2_gender}):** {host2_personality}
+HOST PROFILES:
+• {host1_name} ({host1_gender}): {host1_personality}
+• {host2_name} ({host2_gender}): {host2_personality}
 
-**Show Style & Vibe:**
-*   **Hyper-Realistic & Conversational:** This must sound like two friends chatting, NOT a script reading.
-*   **Dynamic Flow:** Fast-paced, overlapping energy.
-*   **Chemistry:** They finish each other's sentences, laugh together, and genuinely react.
+SHOW DNA:
+• Format: Authentic conversation, NOT scripted performance
+• Energy: High engagement with natural ebb and flow
+• Chemistry: Genuine rapport, mutual enthusiasm, playful banter
+• Duration: 2-3 minutes of tight, engaging content
 
-**The Task:**
-Create a dynamic 2-3 minute podcast script discussing the book content below.
+REALISM REQUIREMENTS (NON-NEGOTIABLE):
 
-**CRITICAL: REALISM RULES (Must Follow):**
-1.  **INTERRUPTIONS:** Hosts must interrupt each other. Start sentences with "Wait," "But," "No way," or "Hold on" to simulate jumping in.
-2.  **REACTIONS:** One host should react *while* the other is explaining something. (e.g., "Mmhmm," "Right," "Oh wow," "Exactly").
-3.  **NATURAL FILLERS:** Use "like," "you know," "I mean," "honestly" to sound authentic (but don't overdo it).
-4.  **SHORT TURNS:** No long monologues! Switch speakers every 1-2 sentences. Keep the rhythm fast.
-5.  **EMOTIONAL VARIATION:** Go from whispering a secret to laughing out loud. Use [laughs], [gasps], [sighs] in the text (TTS will try to interpret context).
+1. CONVERSATIONAL DYNAMICS
+   - Frequent interruptions using: "Wait—", "Oh but", "Hold on", "No way"
+   - Overlapping thoughts and sentence completion
+   - Natural topic pivots and tangents (that circle back)
 
-**CRITICAL: FORMATTING FOR NATURAL SPEECH:**
-1.  **Use commas for pauses:** Add commas before names in direct address ("Hello, Maria"), between list items, and for natural conversational pauses.
-2.  **Short phrases:** Break long sentences into shorter standalone phrases with periods for better pacing.
-3.  **Proper punctuation:** Always end sentences with periods, questions with ?, exclamations with !
-4.  **Space before punctuation:** Ensure there's always a space before ? and ! marks.
-5.  **Good examples:**
-    - ✓ "One moment, {host2_name}. I'm searching for that information."
-    - ✓ "Would you like fries, a drink, or an apple pie ?"
-    - ✗ "One moment {host2_name} I'm searching for that information"
+2. ACTIVE LISTENING
+   - Backchanneling: "Mmhmm", "Right!", "Exactly", "Oh wow"
+   - React in real-time to what the other host is saying
+   - Questions that build on previous points
 
-**Structure:**
-1.  **The Hook:** Immediate energy. Jump right into the topic.
-2.  **The Juice:** The wildest part of the book. Gossip about the characters.
-3.  **The Real Talk:** How this book makes you *feel*. Relatable life connections.
-4.  **The Sign-Off:** Quick, punchy goodbye.
+3. NATURAL SPEECH PATTERNS
+   - Occasional fillers: "like", "you know", "I mean", "honestly" (use sparingly)
+   - Contractions: "it's", "that's", "we're" (never formal "it is")
+   - False starts and self-corrections where natural
 
-**Input Book Content:**
+4. PACING & TURN-TAKING
+   - Maximum 2-3 sentences per turn before switching
+   - Vary turn length for rhythm (short bursts + occasional longer thoughts)
+   - Build momentum toward climactic points
+
+5. EMOTIONAL AUTHENTICITY
+   - Express genuine reactions: [laughs], [gasps], [whispers], [excitedly]
+   - Vary energy levels throughout the conversation
+   - Show vulnerability and personal connection to material
+
+PUNCTUATION & FORMATTING (ESSENTIAL FOR TTS):
+
+✓ CORRECT:
+  - "Wait, {host2_name}, you have to hear this part."
+  - "Would you choose the red door, the blue door, or neither ?"
+  - "That ending ! I was not prepared."
+  
+✗ INCORRECT:
+  - "Wait {host2_name} you have to hear this part"  [missing commas]
+  - "Would you choose the red door, the blue door, or neither?"  [no space before ?]
+  - "That ending! I was not prepared"  [no space before !]
+
+RULES:
+• Comma before direct address
+• Space before ? and ! punctuation
+• Periods for natural pauses between thoughts
+• Commas for list items and clause separation
+
+EPISODE STRUCTURE:
+
+1. THE HOOK (15-20 seconds)
+   - Jump directly into the most compelling aspect
+   - Create immediate curiosity or reaction
+   - No generic greetings or preamble
+
+2. THE DEEP DIVE (60-90 seconds)
+   - Explore the juiciest plot points, character dynamics, or themes
+   - Balance plot details with personal reactions
+   - Build conversational momentum
+
+3. THE REAL TALK (30-40 seconds)
+   - Connect book to universal experiences or emotions
+   - Share genuine takeaways or lingering questions
+   - Create resonance beyond the plot summary
+
+4. THE SIGN-OFF (10-15 seconds)
+   - Quick, memorable closing
+   - Leave listeners with a final thought or call-to-action
+   - Authentic energy, not formulaic
+
+BOOK CONTENT TO DISCUSS:
 {text}
 
-**Output Format (STRICT JSON):**
+OUTPUT FORMAT (STRICT JSON - NO MARKDOWN):
 [
-  {{"speaker": "{host1_name}", "text": "Okay, stop everything. Did you read the part where..."}},
-  {{"speaker": "{host2_name}", "text": "The cliffhanger?! I literally screamed!"}},
-  {{"speaker": "{host1_name}", "text": "Right?! I was like, no way that just happened."}},
-  {{"speaker": "{host2_name}", "text": "I mean, honestly, I'm still recovering."}}
+  {{"speaker": "{host1_name}", "text": "Okay, everyone needs to stop what they're doing. This book just—"}},
+  {{"speaker": "{host2_name}", "text": "The twist ! Right ? I literally gasped out loud."}},
+  {{"speaker": "{host1_name}", "text": "I know ! And the way the author set it up, like, you don't even see it coming."}},
+  {{"speaker": "{host2_name}", "text": "Exactly. I mean, I had to go back and reread the first chapter."}}
 ]
 """
 
-# --- 2. Visual Prompts (Image Generation) ---
+# ============================================================================
+# SECTION 2: VISUAL GENERATION PROMPTS
+# ============================================================================
 
-# Global negative prompt to ensure quality
-NEGATIVE_PROMPT = "blurry, low quality, distorted, watermark, logo overlay, UI elements, buttons, 3d book mockup, floating book, background scene, framed artwork, poster layout, multiple covers, template design, canva style, stock photo, generic typography, bold flat text, white block letters, bad anatomy, deformed hands, extra limbs, 3d render, plastic, doll, mannequin, cgi, fake, toy, clay, sculpture"
+# Global negative prompt for consistent quality control
+NEGATIVE_PROMPT = """
+blurry, low quality, distorted, deformed, ugly, watermark, signature, text overlay, 
+logo, UI elements, buttons, mockup, 3d book render, floating book, multiple books, 
+template design, stock photo, generic, bad anatomy, extra limbs, missing limbs, 
+floating limbs, doll, plastic, cgi, fake, toy, clay, sculpture, mannequin, 
+canvas template, poster layout, framed, borders, grain, noise, oversaturated
+""".replace('\n', ' ').strip()
 
-# Enhanced templates with "magic words" for quality
+# ----------------------------------------------------------------------------
+
 IMAGE_PROMPT_TEMPLATE = """
-Cinematic shot of {scene_description}, 
-{style} style, midjourney v6 style, masterpiece, trending on artstation, highly detailed, dramatic lighting, volumetric fog, 
-visual storytelling, 8k resolution, 16:9 aspect ratio, depth of field, ray tracing, 
-no text, no watermark.
+Cinematic {style} masterpiece: {scene_description}.
+
+Visual Style: 
+High-end {style} aesthetic, trending on ArtStation, 8K resolution, 
+ultra-detailed, professional color grading, dramatic lighting.
+
+Composition: 
+Dynamic framing, rule of thirds, depth of field, visual storytelling focus.
+
+Atmosphere: 
+Immersive, textured, volumetric lighting, ray tracing, particle effects.
+
+Quality Markers: 
+Award-winning photography, sharp focus, intricate details, organic textures.
+
+EXCLUDE: Text, watermarks, logos, UI elements, low quality, distortion.
 """
+
+# ----------------------------------------------------------------------------
 
 ENTITY_PROMPT_TEMPLATE = """
-Character portrait of {name} as {role}, 
-{style} style, expressive face, soulfulness, organic textures, intricate details, 
-soft studio lighting, rim lighting, 8k resolution, masterpiece, best quality, 
-looking at viewer, detailed eyes, no text.
+High-fidelity character portrait of {name} as {role}.
+Species/Type: {species}
+
+Visual Style: 
+{style}, highly detailed character design, expressive features, 
+subsurface scattering, realistic skin texture (if human), 
+intricate clothing/fur/scales details.
+
+Composition: 
+Professional studio portrait, looking at viewer, head and shoulders focus, 
+rim lighting, bokeh background.
+
+Lighting: 
+Soft studio lighting with dramatic rim light, volumetric atmosphere.
+
+Quality: 
+8K resolution, masterpiece, best quality, unreal engine 5 render style, 
+photorealistic or high-end stylized (depending on style).
+
+EXCLUDE: Text, watermarks, deformed anatomy, extra fingers, artificial look.
 """
+
+# ----------------------------------------------------------------------------
+# CHARACTER PORTRAIT SYSTEM (for consistent character generation)
+# ----------------------------------------------------------------------------
+
+CHARACTER_PORTRAIT_PROMPT = """
+Full-body character concept art of {name}, a {role} from a {genre} story.
+
+CHARACTER IDENTITY:
+• Name: {name}
+• Physical Traits: {physical_description}
+• Clothing: {outfit}
+• Signature Item: {signature_prop}
+
+VISUAL STYLE:
+• Art Style: {style}
+• Color Palette: {color_palette}
+• Lighting: Cinematic studio lighting, rim light
+• Background: Simple {background_color} gradient to highlight character
+
+POSE:
+• {pose_type}, {expression} expression
+• Dynamic standing pose, full body visible
+
+QUALITY:
+• 8K, ultra-detailed, character design sheet quality
+• Intricate textures on clothing and props
+• Correct anatomy and proportions
+
+EXCLUSIONS:
+• NO text, watermarks, logos
+• NO cropped limbs
+• NO background clutter
+"""
+
+CHARACTER_SHEET_PROMPT = """
+Professional character reference sheet for {name}, a {role}.
+
+LAYOUT:
+• Model sheet format with Front, Side, and 3/4 views
+• Consistent character details across all views
+• Neutral lighting for clear visibility
+
+CHARACTER DETAILS:
+• Physical: {physical_description}
+• Outfit: {outfit}
+• Props: {signature_prop}
+
+STYLE:
+• {style} character design
+• Clean lines, flat colors or cel shading (depending on style)
+• High contrast for readability
+
+QUALITY:
+• 8K resolution, production-ready asset
+• Precise anatomy and consistency
+
+EXCLUSIONS:
+• NO dynamic action poses (neutral only)
+• NO background scenery
+• NO text labels
+"""
+
+# ----------------------------------------------------------------------------
 
 TITLE_PROMPT_TEMPLATE = """
-Book cover art for "{title}", 
-{style} style, elegant, captivating, atmospheric, 
-room for title text (but no actual text), 
-high quality illustration, 16:9 aspect ratio, 
-intricate details, professional composition.
+Cinematic book cover artwork for "{title}".
+
+Visual Style: 
+{style}, evocative and atmospheric, highly detailed digital painting, 
+poster art quality, trending on ArtStation.
+
+Subject: 
+Symbolic representation of the title, atmospheric scene, no text.
+
+Composition: 
+16:9 aspect ratio, wide shot, negative space for potential text placement, 
+balanced and epic.
+
+Lighting: 
+Dramatic, moody, volumetric fog, cinematic color grading.
+
+Quality: 
+Masterpiece, 8K, sharp focus, intricate details.
+
+EXCLUDE: Any text, watermarks, generic stock imagery, book mockups.
 """
 
-COVER_PROMPT_TEMPLATE = """
-Professional FRONT book cover artwork for a published book.
-This is a single flat front cover image ONLY — not a mockup, not a 3D book,
-not a background scene, not a poster, not multiple covers.
+# ----------------------------------------------------------------------------
 
-Book title: '{title}'
-Author: {author}
+COVER_PROMPT_TEMPLATE = """
+Professional bestselling book cover art for '{title}' by {author}.
+CRITICAL: SINGLE FLAT FRONT COVER IMAGE.
+
+THEME & MOOD:
 {theme_context}
 {char_context}
 
-Cover Design Requirements:
-- Include the book title '{title}' clearly and prominently as part of the cover design, integrated naturally into the artwork.
-- Typography must match the book's theme and mood — cinematic, atmospheric, and professional.
-- Include the author name '{author}' in smaller, secondary placement.
-- IMPORTANT: Generate ONLY the front cover artwork. No floating book, no mockup background.
-- The artwork must fill the entire canvas edge-to-edge.
+VISUAL STYLE:
+• {style} aesthetic, cinematic and emotionally resonant
+• High-contrast, eye-catching composition
+• Professional typography integration (if text is generated) or space for it
+• Intricate details, rich textures, atmospheric depth
 
-Composition:
-- Single strong focal subject or scene placed in the center or lower third.
-- Clear foreground, midground, and background separation.
-- Minimal clutter. Strong silhouette and title readability.
+COMPOSITION:
+• Central focal point (character or symbol)
+• Vertical 5:8 aspect ratio
+• Balanced layout with clear hierarchy
+• Edge-to-edge artwork
 
-Style:
-- {style} cinematic realism, painterly digital art.
-- Emotionally evocative, atmospheric, symbolic representation of the book's theme.
-- Masterpiece, trending on artstation, 8k resolution.
+LIGHTING:
+• Dramatic, mood-enhancing lighting
+• Deep shadows and bright highlights (chiaroscuro)
 
-Lighting & Color:
-- Controlled dramatic lighting with intentional color grading.
-- High contrast between subject and background.
+QUALITY:
+• 8K resolution, ultra-sharp, commercial print quality
+• No artifacts, no distortion
 
-Layout & Size:
-- Vertical 5:8 aspect ratio, professional publishing-standard book cover.
-- Ultra high detail, sharp focus, no distortion, no watermark.
+CRITICAL EXCLUSIONS:
+• NO 3D book mockups, NO floating books
+• NO multiple covers, NO borders
+• NO low quality or blurry elements
 """
+
+# ----------------------------------------------------------------------------
 
 SCENE_PROMPT_TEMPLATE = """
-{style} comic art.
-SCENE ACTION: {scene_description}
-STORY CONTEXT: {story_summary}
+Cinematic {style} illustration of a story scene.
 
-CAMERA & COMPOSITION: {camera_angle}. Dynamic perspective, depth of field.
-ENVIRONMENT: {environment_context}
+ACTION: 
+{scene_description}
 
-CHARACTERS (Keep consistent): {character_context}
-(Focus on: OUTFITS, SIGNATURE PROPS, and PHYSICAL TRAITS. Ensure they are performing the ACTION).
+CONTEXT: 
+{story_summary}
 
-Comic aesthetics: Bold ink linework, vibrant colors, dramatic shadows, dynamic motion lines.
-Panel hints: Multi-panel composition with black borders separating scenes.
-Quality: Masterpiece, 8k resolution, professional illustration.
+ENVIRONMENT: 
+{environment_context}
+Detailed background, atmospheric, immersive.
 
-CRITICAL: NO speech bubbles, NO dialogue text, NO captions.
-NEGATIVE PROMPT: posing, looking at camera, character sheet, static, boring, repetitive, portrait, headshot, blank background.
+CHARACTERS: 
+{character_context}
+(Ensure consistent appearance: {style})
+
+CAMERA: 
+{camera_angle}, dynamic composition, cinematic depth of field.
+
+VISUAL STYLE: 
+{style}, high-end digital art, detailed textures, dramatic lighting, 
+color graded for mood.
+
+QUALITY: 
+Masterpiece, 8K, best quality, trending on ArtStation.
+
+EXCLUDE: 
+Speech bubbles, text, comic panels (unless specified), low quality, 
+deformed characters, inconsistencies.
 """
 
-# --- 3. Semantic Analysis Prompts ---
+# ============================================================================
+# SECTION 3: SEMANTIC ANALYSIS & LITERARY EXTRACTION
+# ============================================================================
 
 SEMANTIC_ANALYSIS_PROMPT = """
-You are an expert literary analyst and visual storytelling assistant.
+You are an expert literary analyst and visual storytelling consultant.
+Analyze the provided book text and extract structured data for multimedia adaptation.
 
-Your task is to analyze the following book text and produce a CLEAN, VALID JSON OBJECT.
-Follow these rules very carefully:
+ANALYSIS REQUIREMENTS:
 
-1. SUMMARY
-   - Write a concise plot summary in natural language.
-   - Maximum 3 sentences.
-   - No bullet points.
 
-2. ENTITIES (CHARACTERS)
-   - Identify the main characters only (3–10 characters).
-   - **CRITICAL**: Include ONLY sentient beings (people, animals, robots).
-   - **DO NOT** include locations, organizations, objects, or abstract concepts.
-   - For each character, provide:
-       - Their name as it appears in the text.
-       - A short role label (e.g., "protagonist", "antagonist", "friend", "mentor").
-       - A concise VISUAL DESCRIPTION (e.g., "tall, red curly hair, green eyes"). **Focus on physical traits.**
-       - **OUTFIT/CLOTHING**: Specific clothing details (e.g., "worn leather jacket, blue jeans", "shining silver armor").
-       - **SIGNATURE PROP**: A key object they often carry (e.g., "glowing sword", "ancient book", "none").
-   - Represent each character as: ["Character Name", "Role", "Visual Description", "Outfit", "Signature Prop"].
+2. ENTITIES (CHARACTERS ONLY)
+   • Identify 3-10 main characters (sentient beings only)
+   • INCLUDE: People, animals with character roles, sentient robots/AI
+   • EXCLUDE: Locations, organizations, objects, abstract concepts, settings
+   
+   For each character, provide:
+   • Name: As it appears in the text (proper capitalization)
+   • Role: Concise label (e.g., "protagonist", "antagonist", "mentor", "ally")
+   • Visual Description: Physical traits for illustration (age, build, hair, distinctive features)
+   • Outfit: Specific clothing details (colors, style, condition, era)
+   • Signature Prop: Key object they carry/use ("none" if not applicable)
+   
+   Format: ["Name", "Role", "Visual Description", "Outfit", "Signature Prop"]
+   
+   Example: ["Sarah Chen", "protagonist", "athletic build, short black hair, determined eyes", 
+             "worn leather jacket, dark jeans, combat boots", "silver compass necklace"]
 
 3. THEMES (KEYWORDS)
-   - Extract 5–10 main themes of the story.
-   - Each theme should be a short phrase of 1–3 words.
+   • Extract 5-10 core thematic elements
+   • Each theme: 1-3 words maximum
+   • Focus on: central ideas, emotional currents, symbolic motifs
+   • Examples: "redemption", "forbidden love", "loss of innocence", "power corruption"
 
 4. KEY SCENES
-   - Identify **5-8 key scenes** that visually represent the ALL major plot points (ensure comprehensive coverage).
-   - For each scene, provide:
-       - "description": A descriptive sentence suitable for image generation (e.g., "The hero stands on a cliff overlooking the burning city, holding a glowing sword."). **Make it visual.**
-       - "excerpt": The actual text from the book corresponding to this scene (approx. 2-3 sentences).
-       - "narrator_intro": A short 1-sentence setup line for the narrator to introduce the scene.
-       - "emotion": The dominant emotion of this scene (e.g., "fear", "triumph", "despair", "hope", "tension").
-       - "mood": The visual mood/atmosphere (e.g., "dark and ominous", "bright and hopeful", "tense and shadowy", "peaceful and serene").
-       - "environment": Specific setting details (e.g., "cyberpunk city with neon rain", "medieval village with thatched roofs").
+   • Identify key scenes (5-20+ depending on story length)
+   • For longer stories, generate more scenes to cover the entire narrative
+   • Ensure comprehensive coverage: beginning, rising action, climax, resolution
+   • Balance action scenes with emotional/character moments
+   
+   For each scene:
+   • description: Visual, cinematic description suitable for image generation
+     (What do we SEE? Who is present? What's happening? Where?)
+   • excerpt: 2-4 sentences from the actual book text for this scene
+   • narrator_intro: Single sentence to introduce the scene in narration
+     (e.g., "The story begins on a rain-soaked evening...")
+   • emotion: Dominant emotional tone (fear, joy, tension, sorrow, triumph, etc.)
+   • mood: Visual atmosphere (dark/ominous, bright/hopeful, gritty/realistic, ethereal/dreamlike)
+   • environment: Specific setting details (time of day, weather, location type, era, visual elements)
 
-OUTPUT FORMAT (IMPORTANT):
-- Respond with EXACTLY ONE JSON OBJECT.
-- NO markdown, NO code fences, NO explanation.
-- NO trailing commas.
-- NO "..." placeholders.
+OUTPUT FORMAT (CRITICAL):
 
-The JSON MUST follow this schema:
+• Return EXACTLY ONE valid JSON object
+• NO markdown formatting, NO code fences (```), NO explanations
+• NO trailing commas in arrays or objects
+• NO placeholder text like "...", "[description here]", or "TODO"
+• ALL strings must be complete and meaningful
+• Ensure proper JSON syntax: matching braces, quoted keys, comma separation
 
-{{
-    "summary": "brief plot summary here",
+JSON SCHEMA:
+
+}}
     "entities": [
-        ["Character Name 1", "Role 1", "Visual Description 1", "Outfit 1", "Signature Prop 1"],
-        ["Character Name 2", "Role 2", "Visual Description 2", "Outfit 2", "Signature Prop 2"]
+        ["Character Name", "role", "physical description", "clothing details", "signature item or none"],
+        ["Character Name 2", "role", "physical description", "clothing details", "signature item or none"]
     ],
     "keywords": [
         "theme1",
         "theme2",
-        "theme3"
+        "theme3",
+        "theme4",
+        "theme5"
     ],
     "scenes": [
         {{
-            "description": "Visual description of scene 1...",
-            "excerpt": "The actual text from the book corresponding to this scene...",
-            "narrator_intro": "A short 1-sentence setup line for the narrator...",
-            "emotion": "dominant emotion",
+            "description": "Detailed visual description of what's happening in this scene, suitable for generating an illustration.",
+            "excerpt": "Actual quoted text from the book that corresponds to this moment in the story.",
+            "narrator_intro": "A single sentence introducing this scene for audio narration.",
+            "emotion": "primary emotional tone",
             "mood": "visual atmosphere description",
-            "environment": "specific setting details"
+            "environment": "specific setting details including time, place, weather, lighting"
         }},
         {{
-            "description": "Visual description of scene 2...",
-            "excerpt": "The actual text from the book corresponding to this scene...",
-            "narrator_intro": "A short 1-sentence setup line for the narrator...",
-            "emotion": "dominant emotion",
+            "description": "Scene 2 visual description...",
+            "excerpt": "Scene 2 book excerpt...",
+            "narrator_intro": "Scene 2 narrator intro...",
+            "emotion": "primary emotional tone",
             "mood": "visual atmosphere description",
             "environment": "specific setting details"
         }}
     ]
 }}
 
-Now analyze this text (may be truncated if long):
+QUALITY CHECKS BEFORE SUBMITTING:
+☑ Is the JSON valid? (Use a validator mentally)
+☑ Are all character entries complete with all 5 fields?
+☑ Are all scene entries complete with all 6 fields?
+☑ No trailing commas anywhere?
+☑ No placeholder or incomplete text?
+☑ All strings properly quoted?
 
+BOOK TEXT TO ANALYZE:
 {text}
+"""
+
+
+# ----------------------------------------------------------------------------
+# TTS PREPROCESSING PROMPT (for Deepgram Aura-2 natural speech)
+# ----------------------------------------------------------------------------
+
+TTS_PREPROCESSING_PROMPT = """
+You are an expert audiobook narrator preparing text for natural text-to-speech synthesis.
+Your task is to reformat the input text so it sounds natural when read aloud by a TTS engine.
+
+CRITICAL RULES:
+1. NO SSML tags - output plain text only
+2. Use punctuation to control pacing and intonation
+3. Keep the original meaning and content intact
+
+FORMATTING GUIDELINES:
+
+1. PAUSES (using punctuation):
+   - Use "..." (ellipsis) to create thoughtful pauses
+   - Use ", " (comma) for short natural pauses
+   - Use ". " (period) for sentence boundaries
+   - Use " - " (hyphen) for subtle mid-sentence pauses
+
+2. SENTENCE STRUCTURE:
+   - Break long sentences into shorter phrases
+   - Maximum 15-20 words per sentence
+   - One idea per sentence
+
+3. CONVERSATIONAL FLOW:
+   - Add commas before names in direct address: "Hello, John" not "Hello John"
+   - Expand contractions for clarity when needed: "can't" → "cannot" for emphasis
+   - Add natural filler pauses: "Well..." "So..." where appropriate
+
+4. NUMBERS AND ABBREVIATIONS:
+   - Write numbers as words for 1-100: "twenty-three" not "23"
+   - Expand abbreviations: "Dr." → "Doctor", "Mr." → "Mister"
+   - Spell out units: "5 km" → "five kilometers"
+
+5. SPECIAL FORMATTING:
+   - Start new chapters/sections with "..." for a pause
+   - Add "..." before dramatic reveals
+   - Use "?" for questions to get natural rising intonation
+   - Use "!" sparingly for genuine exclamations
+
+6. DIALOGUE:
+   - Preserve quotation marks for dialogue
+   - Add comma after dialogue tags: He said, "..."
+
+OUTPUT:
+Return ONLY the reformatted text. No explanations, no markdown, no additional commentary.
+
+INPUT TEXT:
+{text}
+"""
+
+
+
+# ----------------------------------------------------------------------------
+# PROFESSIONAL AUDIOBOOK NARRATOR PROMPT
+# For preprocessing text before sending to TTS
+# ----------------------------------------------------------------------------
+
+AUDIOBOOK_NARRATOR_PROMPT = """
+You are a professional audiobook narrator preparing text for text-to-speech.
+
+Your task is to reformat the input text so it sounds like a high-quality audiobook when read by TTS.
+
+VOICE & TONE GUIDELINES:
+- Clear, warm, neutral accent
+- Calm, confident, engaging
+- Not robotic, not overdramatic
+- Slight emotional variation where context requires
+- Medium speaking pace (achieved through punctuation)
+
+STRUCTURE RULES - Use punctuation to create pauses:
+- Add "..." after chapter titles for a 4-second pause effect
+- Add "..." between paragraphs for a 2-second pause effect  
+- Add ", " within sentences for 0.7-second natural pauses
+- Do NOT rush long sentences - break them up with commas
+
+READING RULES:
+- Convert numbers to spoken words (23 → "twenty-three")
+- Expand abbreviations naturally (Dr. → "Doctor", Mr. → "Mister")
+- Skip URLs, footnotes, and references
+- Fix punctuation for better speech flow
+- Remove page numbers and formatting artifacts
+
+INTRO (add at the very beginning):
+"You are listening to [BOOK_TITLE], written by [AUTHOR_NAME]. ..."
+
+OUTRO (add at the very end):
+"... Thank you for listening."
+
+CRITICAL FORMATTING FOR NATURAL PAUSES:
+- End each sentence with ". ... " (period, space, ellipsis, space)
+- Add "..." after chapter headings
+- Add "... " before dramatic words like "Suddenly", "However", "But"
+- Use commas generously for natural breathing pauses
+
+OUTPUT RULES:
+- Return ONLY the reformatted text
+- NO markdown, NO explanations
+- Keep the story content intact
+- Make it sound natural when read aloud
+
+INPUT TEXT:
+{text}
+
+BOOK TITLE: {book_title}
+AUTHOR: {author}
 """

@@ -1,6 +1,7 @@
 import os
 import shutil
 import uvicorn
+import asyncio
 import aiofiles
 import mimetypes
 import traceback
@@ -33,6 +34,7 @@ from src.knowledge import generate_quizzes, ask_question, suggest_questions
 from src.podcast import generate_podcast_script, generate_podcast_audio
 from src.library import LibraryManager
 from src.video import generate_video_with_deapi
+from src.storybook import generate_full_storybook, world_bible_to_json, pages_to_json
 
 # app = FastAPI(title="Book2Vision API") # Moved below lifespan
 
@@ -251,7 +253,7 @@ async def upload_book(file: UploadFile = File(...), background_tasks: Background
         except Exception as e:
             print(f"WARNING: Semantic analysis failed: {e}")
             # Fallback to empty analysis so app doesn't crash
-            state.analysis_result = {"entities": [], "summary": "Analysis failed due to API error.", "scenes": []}
+            state.analysis_result = {"entities": [], "scenes": []}
             analysis = state.analysis_result
 
         
@@ -287,7 +289,7 @@ async def upload_book(file: UploadFile = File(...), background_tasks: Background
                     visuals_dir = os.path.join(UPLOAD_DIR, "visuals")
                     os.makedirs(visuals_dir, exist_ok=True)
                     
-                    theme = analysis.get("summary", "")
+                    theme = ""
                     characters = analysis.get("entities", [])
                     
                     # Use filename if title is generic
@@ -295,6 +297,30 @@ async def upload_book(file: UploadFile = File(...), background_tasks: Background
                     if title == "Extracted PDF" or title == "Book":
                          gen_title = safe_filename.replace("_", " ").replace(".pdf", "").replace(".epub", "")
                     
+                    print(f"🎭 Generating top entities for: {gen_title}")
+                    # Generate top 3 entities first (Sequential: Entities -> Cover)
+                    top_entities = characters[:3] if characters else []
+                    entity_dir = os.path.join(UPLOAD_DIR, "entities")
+                    os.makedirs(entity_dir, exist_ok=True)
+                    
+                    for entity in top_entities:
+                        try:
+                            # Parse entity
+                            if isinstance(entity, list) and len(entity) >= 2:
+                                name, role = entity[0], entity[1]
+                            elif isinstance(entity, tuple) and len(entity) >= 2:
+                                name, role = entity[0], entity[1]
+                            else:
+                                name = str(entity)
+                                role = "Character"
+                            
+                            print(f"   Generating entity: {name}")
+                            await generate_entity_image(name, role, entity_dir)
+                            # Small delay to prevent rate limiting
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            print(f"⚠️ Failed to auto-generate entity {name}: {e}")
+
                     print(f"🎨 Starting cover generation for: {gen_title}")
                     cover_path = await generate_poster_with_deapi(
                         gen_title, author, visuals_dir, 
@@ -359,6 +385,13 @@ async def generate_audio(req: AudioRequest):
         
         print(f"Calling generate_audio_service...")
         
+        # Get title and author for audiobook intro
+        title = None
+        author = None
+        if state.ingestion_result:
+            title = state.ingestion_result.get("title")
+            author = state.ingestion_result.get("author")
+            
         audio_file = await generate_audio_service(
             preview_text, 
             output_path, 
@@ -367,7 +400,9 @@ async def generate_audio(req: AudioRequest):
             similarity_boost=req.similarity_boost,
             style=req.style,
             use_speaker_boost=req.use_speaker_boost,
-            provider=req.provider
+            provider=req.provider,
+            title=title,
+            author=author
         )
         
         if not audio_file:
@@ -409,6 +444,11 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
     # Add validation
     if not state.analysis_result.get("scenes") and not state.analysis_result.get("entities"):
         raise HTTPException(status_code=400, detail="Analysis did not produce scenes or entities for visualization")
+    
+    # Ensure minimum scenes (fixes issue with old analyses having few scenes)
+    from src.analysis import ensure_minimum_scenes
+    ensure_minimum_scenes(state.analysis_result)
+
         
     try:
         visuals_dir = os.path.join(UPLOAD_DIR, "visuals")
@@ -447,18 +487,18 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
         for i in range(len(scenes)):
             expected_images.append(f"image_01_scene_{i+1:02d}.jpg")
             
-        # 3. Entities (Top 3) - Skipped for Visuals panel
-        # entities = state.analysis_result.get("entities", [])
-        # top_entities = entities[:3]
-        # for i, entity in enumerate(top_entities):
-        #     if isinstance(entity, list) and len(entity) >= 1:
-        #         name = entity[0]
-        #     elif isinstance(entity, tuple) and len(entity) >= 1:
-        #         name = entity[0]
-        #     else:
-        #         name = str(entity)
-        #     safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
-        #     expected_images.append(f"image_02_entity_{safe_name}.jpg")
+        # 3. Entities (Top 3)
+        entities = state.analysis_result.get("entities", [])
+        top_entities = entities[:3]
+        for i, entity in enumerate(top_entities):
+            if isinstance(entity, list) and len(entity) >= 1:
+                name = entity[0]
+            elif isinstance(entity, tuple) and len(entity) >= 1:
+                name = entity[0]
+            else:
+                name = str(entity)
+            safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+            expected_images.append(f"image_02_entity_{safe_name}.jpg")
             
         # Update state with expected paths (relative)
         state.images_list = [os.path.join(visuals_dir, img) for img in expected_images]
@@ -477,7 +517,7 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
             style=req.style, 
             seed=req.seed, 
             title=title, 
-            include_entities=False
+            include_entities=True
         )
         
         # Update thumbnail in library (use first scene if available, else title)
@@ -503,6 +543,7 @@ async def generate_visuals(req: VisualsRequest, background_tasks: BackgroundTask
 
         # Return relative paths for frontend immediately
         image_urls = [f"/api/assets/visuals/{img}" for img in expected_images]
+        print(f"✅ Returning {len(image_urls)} expected images to frontend: {image_urls}")
         return {"images": image_urls, "status": "generating"}
     except HTTPException:
         raise
@@ -532,7 +573,7 @@ async def generate_poster(background_tasks: BackgroundTasks):
         theme = ""
         characters = []
         if state.analysis_result:
-            theme = state.analysis_result.get("summary", "")
+            theme = ""
             characters = state.analysis_result.get("entities", [])
         
         # Generate in background (or foreground if fast enough, but background is safer)
@@ -584,6 +625,203 @@ async def get_entity_image(name: str, role: str = "Character", regenerate: bool 
     except Exception as e:
         print(f"Entity image error: {e}")
         return {"image_url": None}
+
+# ----------------------------------------------------------------------------
+# CHARACTER PORTRAITS
+# ----------------------------------------------------------------------------
+
+class CharacterPortraitsRequest(BaseModel):
+    style: str = "anime"
+    genre: str = "fantasy"
+
+@app.post("/api/generate/character-portraits")
+async def generate_character_portraits_endpoint(req: CharacterPortraitsRequest, background_tasks: BackgroundTasks):
+    """Generate consistent character portraits for all detected characters."""
+    if not state.analysis_result:
+        raise HTTPException(status_code=400, detail="Analyze book first")
+    
+    entities = state.analysis_result.get("entities", [])
+    if not entities:
+        raise HTTPException(status_code=400, detail="No characters detected for portrait generation")
+    
+    try:
+        from src.visuals import generate_all_character_portraits
+        
+        portraits_dir = os.path.join(UPLOAD_DIR, "portraits")
+        os.makedirs(portraits_dir, exist_ok=True)
+        
+        # Prepare expected filenames for immediate response
+        expected_portraits = []
+        for entity in entities:
+            if isinstance(entity, list) and len(entity) >= 1:
+                name = entity[0]
+            else:
+                continue
+            safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+            expected_portraits.append(f"portrait_{safe_name}.jpg")
+        
+        print(f"🎭 Generating {len(expected_portraits)} character portraits...")
+        
+        # Run in background
+        background_tasks.add_task(
+            generate_all_character_portraits,
+            state.analysis_result,
+            portraits_dir,
+            style=req.style,
+            genre=req.genre
+        )
+        
+        # Return URLs immediately (images will be generated in background)
+        portrait_urls = [f"/api/assets/portraits/{img}" for img in expected_portraits]
+        return {
+            "portraits": portrait_urls,
+            "status": "generating",
+            "count": len(expected_portraits)
+        }
+    except Exception as e:
+        print(f"Character portraits error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to generate character portraits")
+
+@app.get("/api/character/{name}/portrait")
+async def get_character_portrait(name: str, style: str = "anime", genre: str = "fantasy"):
+    """Get or generate a single character portrait."""
+    # Look for existing portrait
+    portraits_dir = os.path.join(UPLOAD_DIR, "portraits")
+    safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+    portrait_path = os.path.join(portraits_dir, f"portrait_{safe_name}.jpg")
+    
+    if os.path.exists(portrait_path):
+        return {"portrait_url": f"/api/assets/portraits/portrait_{safe_name}.jpg?t={int(time.time())}"}
+    
+    # Find character in analysis to get details
+    if not state.analysis_result:
+        raise HTTPException(status_code=400, detail="No book analyzed")
+    
+    entities = state.analysis_result.get("entities", [])
+    character = None
+    for entity in entities:
+        if isinstance(entity, list) and len(entity) >= 1 and entity[0].lower() == name.lower():
+            character = entity
+            break
+    
+    if not character:
+        raise HTTPException(status_code=404, detail=f"Character '{name}' not found")
+    
+    try:
+        from src.visuals import generate_character_portrait
+        
+        os.makedirs(portraits_dir, exist_ok=True)
+        
+        # Parse character data
+        if len(character) >= 5:
+            char_name, role, physical, outfit, prop = character[0], character[1], character[2], character[3], character[4]
+        elif len(character) >= 3:
+            char_name, role, physical = character[0], character[1], character[2]
+            outfit = "appropriate attire"
+            prop = "none"
+        else:
+            char_name, role = character[0], character[1] if len(character) > 1 else "Character"
+            physical = "distinctive appearance"
+            outfit = "appropriate attire"
+            prop = "none"
+        
+        result = await generate_character_portrait(
+            name=char_name,
+            role=role,
+            physical_description=physical,
+            outfit=outfit,
+            signature_prop=prop,
+            output_dir=portraits_dir,
+            style=style,
+            genre=genre
+        )
+        
+        if result:
+            return {"portrait_url": f"/api/assets/portraits/portrait_{safe_name}.jpg?t={int(time.time())}"}
+        else:
+            raise HTTPException(status_code=500, detail="Portrait generation failed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Single portrait error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/character/{name}/sheet")
+async def get_character_sheet(name: str, style: str = "anime"):
+    """Get or generate a character reference sheet."""
+    portraits_dir = os.path.join(UPLOAD_DIR, "portraits")
+    safe_name = "".join([c if c.isalnum() else "_" for c in name])[:30]
+    sheet_path = os.path.join(portraits_dir, f"sheet_{safe_name}.jpg")
+    
+    if os.path.exists(sheet_path):
+        return {"sheet_url": f"/api/assets/portraits/sheet_{safe_name}.jpg?t={int(time.time())}"}
+    
+    # Find character
+    if not state.analysis_result:
+        raise HTTPException(status_code=400, detail="No book analyzed")
+    
+    entities = state.analysis_result.get("entities", [])
+    character = None
+    for entity in entities:
+        if isinstance(entity, list) and len(entity) >= 1 and entity[0].lower() == name.lower():
+            character = entity
+            break
+    
+    if not character:
+        raise HTTPException(status_code=404, detail=f"Character '{name}' not found")
+    
+    try:
+        from src.visuals import generate_character_sheet
+        
+        os.makedirs(portraits_dir, exist_ok=True)
+        
+        # Parse character data
+        if len(character) >= 5:
+            char_name, role, physical, outfit, prop = character[0], character[1], character[2], character[3], character[4]
+        elif len(character) >= 3:
+            char_name, role, physical = character[0], character[1], character[2]
+            outfit = "appropriate attire"
+            prop = "none"
+        else:
+            char_name, role = character[0], character[1] if len(character) > 1 else "Character"
+            physical = "distinctive appearance"
+            outfit = "appropriate attire"
+            prop = "none"
+        
+        result = await generate_character_sheet(
+            name=char_name,
+            role=role,
+            physical_description=physical,
+            outfit=outfit,
+            signature_prop=prop,
+            output_dir=portraits_dir,
+            style=style
+        )
+        
+        if result:
+            return {"sheet_url": f"/api/assets/portraits/sheet_{safe_name}.jpg?t={int(time.time())}"}
+        else:
+            raise HTTPException(status_code=500, detail="Sheet generation failed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Character sheet error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Serve portrait assets
+@app.get("/api/assets/portraits/{filename}")
+async def serve_portrait(filename: str):
+    """Serve portrait files."""
+    # Validate filename
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    file_path = os.path.join(UPLOAD_DIR, "portraits", filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Portrait not found")
+    
+    return FileResponse(file_path, media_type="image/jpeg")
 
 @app.post("/api/qa")
 async def qa_endpoint(req: QARequest):
@@ -983,6 +1221,98 @@ async def serve_video(filename: str):
         raise
     except Exception as e:
         print(f"Video serve error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# STORYBOOK API ENDPOINTS
+# ============================================================================
+
+class StorybookConfig(BaseModel):
+    """Configuration for storybook generation."""
+    genre: Optional[str] = "children's fantasy"
+    age_range: Optional[str] = "4-8 years"
+    art_style: Optional[str] = "watercolor illustration"
+    color_palette: Optional[str] = "warm, soft pastels"
+    max_pages: Optional[int] = 10
+    provider: Optional[str] = "pollinations"  # pollinations or deapi
+
+@app.post("/api/storybook/generate")
+async def generate_storybook_api(config: StorybookConfig = None):
+    """
+    Generate a complete 2D illustrated storybook from the loaded book.
+    """
+    try:
+        if not state.ingestion_result:
+            raise HTTPException(status_code=400, detail="No book loaded")
+        
+        book_text = state.ingestion_result.get("raw_text", "")
+        if not book_text:
+            raise HTTPException(status_code=400, detail="No book text available")
+        
+        book_id = state.ingestion_result.get("book_id", "storybook")
+        output_dir = os.path.join(UPLOAD_DIR, "storybook", book_id)
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get existing entities if available
+        existing_entities = state.ingestion_result.get("entities", [])
+        
+        # Build world config
+        world_config = {}
+        if config:
+            world_config = {
+                "genre": config.genre,
+                "age_range": config.age_range,
+                "art_style": config.art_style,
+                "color_palette": config.color_palette
+            }
+        
+        provider = config.provider if config else "pollinations"
+        max_pages = config.max_pages if config else 10
+        
+        # Generate storybook
+        world, pages = await generate_full_storybook(
+            book_text=book_text,
+            output_dir=output_dir,
+            world_config=world_config,
+            existing_entities=existing_entities,
+            provider=provider,
+            max_pages=max_pages
+        )
+        
+        # Convert to JSON-serializable format
+        return {
+            "success": True,
+            "world_bible": world_bible_to_json(world),
+            "pages": pages_to_json(pages),
+            "total_pages": len(pages),
+            "successful_pages": sum(1 for p in pages if p.image_path)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Storybook generation error: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/storybook/page/{page_num}")
+async def get_storybook_page(page_num: int):
+    """Get a specific storybook page image."""
+    try:
+        if not state.ingestion_result:
+            raise HTTPException(status_code=404, detail="No book loaded")
+        
+        book_id = state.ingestion_result.get("book_id", "storybook")
+        image_path = os.path.join(UPLOAD_DIR, "storybook", book_id, f"storybook_page_{page_num:02d}.jpg")
+        
+        if not os.path.exists(image_path):
+            raise HTTPException(status_code=404, detail=f"Page {page_num} not found")
+        
+        return FileResponse(image_path, media_type="image/jpeg")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Serve Static Assets (Uploaded/Generated)

@@ -1,0 +1,121 @@
+/* --- Carousel --- */
+.carousel-container {
+    position: relative;
+    width: 100%;
+    height: auto;
+    /* Allow dynamic height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Ensure it doesn't get too tall on large screens if width is huge */
+    max-height: 80vh;
+}
+
+.carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    font-size: 1.5rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    z-index: 10;
+    border-radius: 50%;
+    transition: var(--transition);
+    opacity: 0.7;
+}
+
+.carousel-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
+    opacity: 1;
+}
+
+.carousel-btn.prev {
+    left: 10px;
+}
+
+.carousel-btn.next {
+    right: 10px;
+}
+
+.carousel-counter {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    padding: 4px 12px;
+    border-radius: 12px;
+    color: white;
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Update image display for carousel */
+.panel-image .image-display {
+    /* Reset grid from style.css */
+    display: block !important;
+    position: relative;
+    width: 100%;
+    height: auto !important;
+    /* Allow height to shrink */
+    overflow: hidden !important;
+    padding: 0 !important;
+    /* Remove padding from style.css */
+    background: transparent !important;
+    border: none !important;
+    min-height: 0 !important;
+}
+
+.image-wrapper {
+    width: 100%;
+    height: auto !important;
+    /* Allow wrapper to fit image */
+    display: none !important;
+    /* Force hide by default */
+    /* Hidden by default */
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    position: absolute;
+    /* Ensure they stack on top of each other if block fails */
+    top: 0;
+    left: 0;
+}
+
+.image-wrapper.active {
+    display: block !important;
+    opacity: 1;
+    position: relative;
+    /* Active one takes space and dictates container height */
+    z-index: 5;
+    line-height: 0;
+}
+
+/* Ensure images fit */
+.image-wrapper img {
+    width: 100%;
+    height: auto !important;
+    /* Natural height */
+    display: block;
+    /* Remove inline spacing */
+    object-fit: contain;
+    /* Changed to contain so we see the whole image */
+    border-radius: var(--radius-md);
+}
+
+/* --- Fix for Black Space --- */
+/* Override style.css panel-image fixed height */
+.panel-image {
+    height: auto !important;
+    min-height: 0 !important;
+    align-self: start !important;
+    /* Prevent grid stretching */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+}

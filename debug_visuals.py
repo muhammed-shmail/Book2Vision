@@ -27,7 +27,7 @@ async def test_pollinations():
         }
         
         print("Generating images with Pollinations...")
-        images = await generate_images(semantic_map, output_dir, provider="pollinations", title="Debug Book")
+        images = await generate_images(semantic_map, output_dir, title="Debug Book")
         print(f"Generated {len(images)} images.")
         for img in images:
             print(f" - {img}")
